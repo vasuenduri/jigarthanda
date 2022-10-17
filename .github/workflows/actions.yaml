@@ -1,0 +1,29 @@
+name: k8s-secrets
+on:
+  workflow_dispatch:
+    inputs:
+      docker_version:
+        type: string
+        description: 'Dockerfile version'
+        required: true
+        default: '0.6'
+      release:
+        type: string
+        description: 'Release Name'
+        required: true
+        default: 'kdbm'
+jobs:
+  helm-pem:
+    runs-on: docker
+    env:
+      docker_version: 0.6
+      release: 'kdbm'
+      cluster4_5: 'f02'
+      dbStorageType: 'csi-local'
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v3
+
+      - name: PKS permissions     
+        run: |
+          echo "hello"
