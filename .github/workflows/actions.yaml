@@ -1,4 +1,4 @@
-name: k8s-secrets
+name: docker-execution
 on:
   workflow_dispatch:
     inputs:
@@ -13,8 +13,10 @@ on:
         required: true
         default: 'kdbm'
 jobs:
-  helm-pem:
-    runs-on: docker
+  docker-execution:
+    runs-on: ubuntu-latest
+    container:
+      image: docker:dind
     env:
       docker_version: 0.6
       release: 'kdbm'
@@ -26,4 +28,4 @@ jobs:
 
       - name: PKS permissions     
         run: |
-          echo "hello"
+          docker ps
