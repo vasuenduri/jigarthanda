@@ -21,7 +21,7 @@ on:
         default: ''
 jobs:
   dns_records:
-    runs-on: docker
+    runs-on: ubuntu-latest
     steps:
       - name: Code Checkout
         uses: actions/checkout@v3
