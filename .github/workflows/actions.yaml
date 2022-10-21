@@ -44,5 +44,5 @@ jobs:
       - name: Install dependencies Including Ansible
         working-directory: env/
         run: |
-          if [ -f skynet/requirements.txt ]; then pip install -r skynet/requirements.txt; fi
+          if [ -f ../skynet/requirements.txt ]; then pip install -r ../skynet/requirements.txt; fi
           ls -al ../ && pwd
