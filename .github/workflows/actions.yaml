@@ -46,4 +46,5 @@ jobs:
         run: |
           if [ -f ../skynet/requirements.txt ]; then pip install -r ../skynet/requirements.txt; fi
           ls -al ../ && pwd
-          which python3 
+          which python3
+          which virtualenv
