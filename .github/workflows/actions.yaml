@@ -45,14 +45,4 @@ jobs:
         working-directory: env/
         run: |
           if [ -f skynet/requirements.txt ]; then pip install -r skynet/requirements.txt; fi
-
-      - name: write inventory to file
-        working-directory: env/
-        env:
-          INVENTORY: ${{ secrets.INVENTORY }}
-        run: 'echo "$INVENTORY" > inventory'
-
-      - name: Create DNS Entries
-        working-directory: env/
-        run: |
-          ansible-playbook -i env/inventory skynet/ansible/dns.yml --extra-vars "host_name=${{ inputs.host_name }} dns_subdomain=${{ inputs.dns_subdomain }} ip_address=${{ inputs.ip_address }} infoblox_username=${{ secrets.INFOBLOX_USERNAME }} infoblox_password=${{ secrets.INFOBLOX_PASSWORD }}"
+          ls -al && pwd
