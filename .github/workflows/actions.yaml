@@ -1,31 +1,58 @@
-name: docker-execution
+name: dns_records
 on:
   workflow_dispatch:
     inputs:
-      docker_version:
+      host_name:
         type: string
-        description: 'Dockerfile version'
+        description: 'Host Name'
         required: true
-        default: '0.6'
-      release:
+        default: ''
+      dns_subdomain:
+        type: choice
+        description: 'Sub Domain'
+        required: true
+        options:
+         - mdb
+         - pdb
+      ip_address:
         type: string
-        description: 'Release Name'
+        description: 'IP Address'
         required: true
-        default: 'kdbm'
+        default: ''
 jobs:
-  docker-execution:
-    runs-on: ubuntu-latest
-    container:
-      image: docker:dind
-    env:
-      docker_version: 0.6
-      release: 'kdbm'
-      cluster4_5: 'f02'
-      dbStorageType: 'csi-local'
+  dns_records:
+    runs-on: docker
     steps:
       - name: Code Checkout
         uses: actions/checkout@v3
+        with:
+          path: skynet
 
-      - name: PKS permissions     
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+          cache: 'pip'
+
+      - name: Run Python commands
         run: |
-          docker ps
+          pip install --upgrade pip
+          python3.9 -m venv env
+          source env/bin/activate
+          echo "VIRTUAL ENV:" $VIRTUAL_ENV
+          
+      - name: Install dependencies Including Ansible
+        working-directory: env/
+        run: |
+          if [ -f skynet/requirements.txt ]; then pip install -r skynet/requirements.txt; fi
+
+      - name: write inventory to file
+        working-directory: env/
+        env:
+          INVENTORY: ${{ secrets.INVENTORY }}
+        run: 'echo "$INVENTORY" > inventory'
+
+      - name: Create DNS Entries
+        working-directory: env/
+        run: |
+          ansible-playbook -i env/inventory skynet/ansible/dns.yml --extra-vars "host_name=${{ inputs.host_name }} dns_subdomain=${{ inputs.dns_subdomain }} ip_address=${{ inputs.ip_address }} infoblox_username=${{ secrets.INFOBLOX_USERNAME }} infoblox_password=${{ secrets.INFOBLOX_PASSWORD }}"
