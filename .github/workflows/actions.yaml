@@ -36,4 +36,4 @@ jobs:
 
       - name: Run Python commands
         run: |
-          python3 --version
+          python3 skynet/update_script.py
