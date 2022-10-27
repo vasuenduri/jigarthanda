@@ -36,5 +36,5 @@ jobs:
 
       - name: Run Python commands
         run: |
-          pip install yaml
+          pip install --upgrade pip PyYAML
           python3 skynet/update_script.py
