@@ -2,23 +2,11 @@ name: dns_records
 on:
   workflow_dispatch:
     inputs:
-      host_name:
+      Storge_size:
         type: string
-        description: 'Host Name'
+        description: 'Provide the new storage size e.g: 80Gi'
         required: true
-        default: ''
-      dns_subdomain:
-        type: choice
-        description: 'Sub Domain'
-        required: true
-        options:
-         - mdb
-         - pdb
-      ip_address:
-        type: string
-        description: 'IP Address'
-        required: true
-        default: ''
+        default: '60Gi'
 jobs:
   dns_records:
     runs-on: ubuntu-latest
