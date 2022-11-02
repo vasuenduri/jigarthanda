@@ -25,4 +25,4 @@ jobs:
       - name: Run Python commands
         run: |
           pip install --upgrade pip PyYAML
-          python3 skynet/update_script.py
+          python3 skynet/update_script.py skynet/pvc.yaml "repo.primetherapeutics.com:17443/mongodb:0.8"
