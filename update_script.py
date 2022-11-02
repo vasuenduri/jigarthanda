@@ -7,7 +7,7 @@ with open(sys.argv[1], "r") as file:
 
 # Update the key you want to change
 #content["spec"]["resources"]["requests"]["storage"] = sys.argv[2]
-content["items"][0]["spec"]["template"]["containers"]["image"] = sys.argv[2]
+content["items"][0]["spec"]["template"]["spec"]["containers"]["image"] = sys.argv[2]
 
 # Write the data structure back to your file in YAML
 with open(sys.argv[1], "w") as file:
