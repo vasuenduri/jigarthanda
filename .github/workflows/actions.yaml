@@ -7,6 +7,10 @@ on:
         description: 'Provide the new storage size e.g: 80Gi'
         required: true
         default: '60Gi'
+      days:
+        type: string
+        required: true
+        default: '5'
 env:
   NAMESPACES: 'dev,qa,stg'
 jobs:
@@ -24,5 +28,10 @@ jobs:
             for i in "${myarray[@]}"; do
               namespace=$(echo $i)
             done
+          
+      - name: date var
+        run: |
+          date1=$(date -d '-${{ inputs.days }} day' '+%Y-%m-%d)
+          echo $date1
 
       
