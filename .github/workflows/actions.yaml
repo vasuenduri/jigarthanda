@@ -31,7 +31,7 @@ jobs:
           
       - name: date var
         run: |
-          date1=$(date -d '-${{ inputs.days }} day' '+%Y-%m-%d)
+          date1=$(date -d '-${{ inputs.days }} day' '+%Y-%m-%d')
           echo $date1
 
       
