@@ -7,6 +7,11 @@ on:
         description: 'Provide the new storage size e.g: 80Gi'
         required: true
         default: '60Gi'
+env:
+  namespaces: |
+     'dev'
+     'qa'
+     'stg'
 jobs:
   dns_records:
     runs-on: ubuntu-latest
@@ -15,14 +20,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           path: skynet
-
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.9
-          cache: 'pip'
-
-      - name: Run Python commands
+          
+      - name: list vars
         run: |
-          pip install --upgrade pip PyYAML
-          python3 skynet/update_script.py skynet/pvc.yaml "repo.primetherapeutics.com:17443/mongodb:0.8"
+          echo $namespaces
+
+      
