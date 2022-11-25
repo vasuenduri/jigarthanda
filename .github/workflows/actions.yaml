@@ -8,10 +8,7 @@ on:
         required: true
         default: '60Gi'
 env:
-  namespaces: |
-     'dev'
-     'qa'
-     'stg'
+  NAMESPACES: 'dev,qa,stg'
 jobs:
   dns_records:
     runs-on: ubuntu-latest
@@ -23,6 +20,9 @@ jobs:
           
       - name: list vars
         run: |
-          echo $namespaces
+          IFS="," read -a myarray <<< ${{ env.NAMESPACES }}
+            for i in "${myarray[@]}"; do
+              echo "Value: ${i}"
+            done
 
       
