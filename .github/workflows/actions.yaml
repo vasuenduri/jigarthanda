@@ -22,7 +22,7 @@ jobs:
         run: |
           IFS="," read -a myarray <<< ${{ env.NAMESPACES }}
             for i in "${myarray[@]}"; do
-              echo $i
+              namespace=$(echo $i)
             done
 
       
