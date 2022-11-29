@@ -3,6 +3,7 @@ on:
   push:
     branches:    
       - master
+      - 'srinivas'
   workflow_dispatch:
     inputs:
       Storge_size:
