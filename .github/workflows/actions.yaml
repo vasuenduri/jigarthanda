@@ -1,0 +1,38 @@
+name: dns_records
+on:
+  push:
+    branches:    
+      - master
+  workflow_dispatch:
+    inputs:
+      Storge_size:
+        type: string
+        description: 'Provide the new storage size e.g: 80Gi'
+        required: true
+        default: '60Gi'
+      days:
+        type: string
+        required: true
+        default: '5'
+env:
+  NAMESPACES: 'dev,qa,stg'
+jobs:
+  dns_records:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v3
+        with:
+          path: skynet
+          
+      - name: list vars
+        run: |
+          IFS="," read -a myarray <<< ${{ env.NAMESPACES }}
+            for i in "${myarray[@]}"; do
+              namespace=$(echo $i)
+            done
+          
+      - name: date var
+        run: |
+          date1=$(date -d '-${{ inputs.days }} day' '+%Y-%m-%d')
+          echo $date1
