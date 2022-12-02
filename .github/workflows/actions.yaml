@@ -32,6 +32,8 @@ jobs:
       - name: date var
         run: |
           date1=$(date -d '-${{ inputs.days }} day' '+%Y-%m-%d')
-          echo $date1
+          RED='\033[0;31m'
+          NC='\033[0m'
+          echo -e "I ${RED}love${NC} Stack Overflow"
 
       
