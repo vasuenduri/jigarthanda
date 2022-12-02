@@ -34,6 +34,11 @@ jobs:
           date1=$(date -d '-${{ inputs.days }} day' '+%Y-%m-%d')
           RED='\033[0;31m'
           NC='\033[0m'
-          echo -e "I ${RED}love${NC} Stack Overflow"
+          GREEN='\033[1;32m'
+          echo -e "${RED}Providing the backup list${NC}"
+          while read -r line
+          do
+            echo -e "${GREEN}$line${NC}"
+          done < skynet/requirements.txt
 
       
