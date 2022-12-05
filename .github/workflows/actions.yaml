@@ -22,23 +22,9 @@ jobs:
         with:
           path: skynet
           
-      - name: list vars
-        run: |
-          IFS="," read -a myarray <<< ${{ env.NAMESPACES }}
-            for i in "${myarray[@]}"; do
-              namespace=$(echo $i)
-            done
-          
-      - name: date var
-        run: |
-          date1=$(date -d '-${{ inputs.days }} day' '+%Y-%m-%d')
-          RED='\033[0;31m'
-          NC='\033[0m'
-          GREEN='\033[1;32m'
-          echo -e "${RED}Providing the backup list${NC}"
-          while read -r line
-          do
-            echo -e "${GREEN}$line${NC}"
-          done < skynet/requirements.txt
+      - name: install deps
+        uses: vasuenduri/rails_toy_app@master
+        with: |
+          GHE_OIDC_ROLE: "hi there"
 
       
