@@ -24,7 +24,7 @@ jobs:
           
       - name: install deps
         uses: vasuenduri/rails_toy_app@master
-        with: |
+        with:
           GHE_OIDC_ROLE: "hi there"
 
       
