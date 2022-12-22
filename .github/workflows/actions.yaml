@@ -23,8 +23,7 @@ jobs:
           path: skynet
           
       - name: install deps
-        uses: vasuenduri/rails_toy_app@master
-        with:
-          GHE_OIDC_ROLE: "hi there"
+        run: |
+          echo "hi there"
 
       
