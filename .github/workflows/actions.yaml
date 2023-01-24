@@ -16,7 +16,7 @@ on:
         type: string
         description: 'Enter list of collections to be excluded from mongodump separated by ",". ex: bridg-rule,age-limitation-mappings,addendum-summaries'
         required: true
-        default: 'boy,mom,babe'
+        default: 'boy,mom'
 env:
   NAMESPACES: 'dev,qa,stg'
 jobs:
@@ -31,10 +31,15 @@ jobs:
       - name: Get MongoDB Dump
         run: |
           IFS=',' read -r -a array <<< ${{ inputs.collections_list }}
-          for element in "${array[@]}"
-          do
-            echo "$element"
-          done
+          list=(babe srini boy mama)
+          function arraydiff() {
+            awk 'BEGIN{RS=ORS=" "}
+            {NR==FNR?a[$0]++:a[$0]--}
+            END{for(k in a)if(a[k])print k}' <(echo -n "${!1}") <(echo -n "${!2}")
+          }
+          req_dbs=($(arraydiff list[@] array[@]))
+          echo "req_dbs:" ${req_dbs[@]}
+ 
 
 
       
