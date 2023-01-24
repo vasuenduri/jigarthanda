@@ -11,6 +11,12 @@ on:
         type: string
         required: true
         default: '5'
+        
+      collections_list:
+        type: string
+        description: 'Enter list of collections to be excluded from mongodump separated by ",". ex: bridg-rule,age-limitation-mappings,addendum-summaries'
+        required: true
+        default: ''
 env:
   NAMESPACES: 'dev,qa,stg'
 jobs:
@@ -22,8 +28,14 @@ jobs:
         with:
           path: skynet
           
-      - name: install deps
+      - name: Get MongoDB Dump
         run: |
-          echo "hi there"
+          IFS="," read -a myarray <<< ${{ inputs.collections_list }}
+          updated_excludelist=''
+          for collection in "${myarray[@]}"; do
+              excludelist="@--excludeCollection="$collection
+              updated_excludelist=$updated_excludelist$excludelist
+          done
+          echo $updated_excludelist
 
       
