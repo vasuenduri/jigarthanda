@@ -1,0 +1,32 @@
+name: range_loop
+on:
+  workflow_dispatch:
+    inputs:
+      replicas:
+        type: choice
+        description: 'Provide the new storage size e.g: 80Gi'
+        options:
+        - "1"
+        - "2"
+        - "3"
+jobs:
+  range_loop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v3
+        with:
+          path: skynet
+          
+      - name: Loop over range
+        run: |
+          START=1
+          END=${{ inputs.replicas }}
+          for i in $(eval echo "{$START..$END}")
+          do
+            echo "Number: $i"
+          done
+ 
+
+
+      
