@@ -25,7 +25,7 @@ jobs:
           for i in $(eval echo "{$START..$END}")
           do
             test_$i="hello-$i"
-            echo $test_$i
+            echo "$test_$i"
           done
  
 
