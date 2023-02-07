@@ -24,8 +24,9 @@ jobs:
           END=${{ inputs.replicas }}
           for i in $(eval echo "{$START..$END}")
           do
-            test_$i="hello-$i"
-            echo "$test_$i"
+            echo "heelo-$i" > test$i.pem
+            sleep 2
+            cat test$i.pem
           done
  
 
