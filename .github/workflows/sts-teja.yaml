@@ -38,6 +38,10 @@ jobs:
           sudo mv /tmp/yq /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
           yq --version
+          
+      - name: updating the command args     
+        run: |
+          yq -i '.spec.template.spec.containers[0].command = "- hello"' skynet/sts.yaml
  
 
 
