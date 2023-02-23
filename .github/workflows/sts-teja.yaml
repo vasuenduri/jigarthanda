@@ -1,0 +1,44 @@
+name: dns_records
+on:
+  workflow_dispatch:
+    inputs:
+      Storge_size:
+        type: string
+        description: 'Provide the new storage size e.g: 80Gi'
+        required: true
+        default: '60Gi'
+      days:
+        type: string
+        required: true
+        default: '5'
+        
+      collections_list:
+        type: string
+        description: 'Enter list of collections to be excluded from mongodump separated by ",". ex: bridg-rule,age-limitation-mappings,addendum-summaries'
+        required: true
+        default: 'boy,mom'
+env:
+  NAMESPACES: 'dev,qa,stg'
+jobs:
+  dns_records:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v3
+        with:
+          path: skynet
+          
+      - name: Download yq binary
+        run: |
+          download_url="https://github.com/mikefarah/yq/releases/download/v4.2.0/yq_linux_amd64"
+          sudo wget -v -O /tmp/yq $download_url
+          
+      - name: YQ permissions     
+        run: |
+          sudo mv /tmp/yq /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+ 
+
+
+      
