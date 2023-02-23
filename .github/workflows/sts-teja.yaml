@@ -1,4 +1,4 @@
-name: dns_records
+name: sts-teja
 on:
   workflow_dispatch:
     inputs:
@@ -20,7 +20,7 @@ on:
 env:
   NAMESPACES: 'dev,qa,stg'
 jobs:
-  dns_records:
+  sts-teja:
     runs-on: ubuntu-latest
     steps:
       - name: Code Checkout
