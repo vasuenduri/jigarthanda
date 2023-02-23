@@ -41,7 +41,7 @@ jobs:
           
       - name: updating the command args     
         run: |
-          yq -i '.spec.template.spec.containers[0].command = "- hello"' skynet/sts.yaml
+          yq -i '.metadata.generation = "hello"' skynet/sts.yaml
  
 
 
