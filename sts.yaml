@@ -1,0 +1,245 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"StatefulSet","metadata":{"annotations":{"meta.helm.sh/release-name":"vwkdbm","meta.helm.sh/release-namespace":"vw-tic-dev"},"creationTimestamp":"2023-02-23T15:06:09Z","generation":1,"labels":{"app.kubernetes.io/managed-by":"Helm"},"name":"vwkdbm","namespace":"vw-tic-dev","uid":"28ab1a08-5d7b-4214-99a2-844aa62730c4"},"spec":{"podManagementPolicy":"OrderedReady","replicas":2,"revisionHistoryLimit":10,"selector":{"matchLabels":{"app":"vwkdbm"}},"serviceName":"vwkdbm-svc","template":{"metadata":{"creationTimestamp":null,"labels":{"app":"vwkdbm"}},"spec":{"affinity":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"app":"vwkdbm"}},"topologyKey":"kubernetes.io/hostname"}]}},"containers":[{"args":["--config=/mms-config/local.config"],"command":["./mongodb-mms-automation-agent"],"image":"repo.primetherapeutics.com:17443/mongodb:0.3","imagePullPolicy":"IfNotPresent","name":"mongodb-db","resources":{"limits":{"cpu":"250m","memory":"10Gi"},"requests":{"cpu":"100m","memory":"5Gi"}},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","volumeMounts":[{"mountPath":"/mms-config","name":"vwkdbm-config"},{"mountPath":"/data","name":"vwkdbm"},{"mountPath":"/etc/ldap","name":"ldap-conf"}]}],"dnsPolicy":"ClusterFirst","hostAliases":[{"hostnames":["lxkdbm-0.lxkdbm-svc.lx-tic-dev.svc.cluster.local"],"ip":"10.201.24.176"}],"restartPolicy":"Always","schedulerName":"default-scheduler","securityContext":{"fsGroup":1000,"runAsGroup":1000,"runAsUser":1000},"terminationGracePeriodSeconds":30,"volumes":[{"configMap":{"defaultMode":420,"items":[{"key":"local.config","path":"local.config"}],"name":"vwkdbm-config"},"name":"vwkdbm-config"},{"configMap":{"defaultMode":420,"items":[{"key":"ldap.conf","path":"ldap.conf"}],"name":"ldap-conf"},"name":"ldap-conf"}]}},"updateStrategy":{"rollingUpdate":{"partition":0},"type":"RollingUpdate"},"volumeClaimTemplates":[{"apiVersion":"v1","kind":"PersistentVolumeClaim","metadata":{"creationTimestamp":null,"name":"vwkdbm"},"spec":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"50Gi"}},"storageClassName":"csi-local","volumeMode":"Filesystem"},"status":{"phase":"Pending"}}]},"status":{"collisionCount":0,"currentReplicas":1,"currentRevision":"vwkdbm-7c8f5578d6","observedGeneration":1,"replicas":1,"updateRevision":"vwkdbm-7c8f5578d6","updatedReplicas":1}}
+    meta.helm.sh/release-name: vwkdbm
+    meta.helm.sh/release-namespace: vw-tic-dev
+  creationTimestamp: "2023-02-23T15:06:09Z"
+  generation: 2
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  managedFields:
+  - apiVersion: apps/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          .: {}
+          f:app.kubernetes.io/managed-by: {}
+      f:spec:
+        f:podManagementPolicy: {}
+        f:replicas: {}
+        f:revisionHistoryLimit: {}
+        f:selector: {}
+        f:serviceName: {}
+        f:template:
+          f:metadata:
+            f:labels:
+              .: {}
+              f:app: {}
+          f:spec:
+            f:affinity:
+              .: {}
+              f:podAntiAffinity:
+                .: {}
+                f:requiredDuringSchedulingIgnoredDuringExecution: {}
+            f:containers:
+              k:{"name":"mongodb-db"}:
+                .: {}
+                f:args: {}
+                f:command: {}
+                f:image: {}
+                f:imagePullPolicy: {}
+                f:name: {}
+                f:resources:
+                  .: {}
+                  f:limits:
+                    .: {}
+                    f:cpu: {}
+                    f:memory: {}
+                  f:requests:
+                    .: {}
+                    f:cpu: {}
+                    f:memory: {}
+                f:terminationMessagePath: {}
+                f:terminationMessagePolicy: {}
+                f:volumeMounts:
+                  .: {}
+                  k:{"mountPath":"/data"}:
+                    .: {}
+                    f:mountPath: {}
+                    f:name: {}
+                  k:{"mountPath":"/etc/ldap"}:
+                    .: {}
+                    f:mountPath: {}
+                    f:name: {}
+                  k:{"mountPath":"/mms-config"}:
+                    .: {}
+                    f:mountPath: {}
+                    f:name: {}
+            f:dnsPolicy: {}
+            f:restartPolicy: {}
+            f:schedulerName: {}
+            f:securityContext:
+              .: {}
+              f:fsGroup: {}
+              f:runAsGroup: {}
+              f:runAsUser: {}
+            f:terminationGracePeriodSeconds: {}
+            f:volumes:
+              .: {}
+              k:{"name":"ldap-conf"}:
+                .: {}
+                f:configMap:
+                  .: {}
+                  f:defaultMode: {}
+                  f:items: {}
+                  f:name: {}
+                f:name: {}
+              k:{"name":"vwkdbm-config"}:
+                .: {}
+                f:configMap:
+                  .: {}
+                  f:defaultMode: {}
+                  f:items: {}
+                  f:name: {}
+                f:name: {}
+        f:updateStrategy:
+          f:rollingUpdate:
+            .: {}
+            f:partition: {}
+          f:type: {}
+        f:volumeClaimTemplates: {}
+    manager: Go-http-client
+    operation: Update
+    time: "2023-02-23T15:06:09Z"
+  - apiVersion: apps/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:kubectl.kubernetes.io/last-applied-configuration: {}
+      f:spec:
+        f:template:
+          f:spec:
+            f:hostAliases:
+              .: {}
+              k:{"ip":"10.201.24.176"}:
+                .: {}
+                f:hostnames: {}
+                f:ip: {}
+    manager: kubectl-client-side-apply
+    operation: Update
+    time: "2023-02-23T15:08:20Z"
+  - apiVersion: apps/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:collisionCount: {}
+        f:currentRevision: {}
+        f:observedGeneration: {}
+        f:replicas: {}
+        f:updateRevision: {}
+        f:updatedReplicas: {}
+    manager: kube-controller-manager
+    operation: Update
+    subresource: status
+    time: "2023-02-23T15:12:27Z"
+  name: vwkdbm
+  namespace: vw-tic-dev
+  resourceVersion: "131902955"
+  uid: 28ab1a08-5d7b-4214-99a2-844aa62730c4
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 2
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: vwkdbm
+  serviceName: vwkdbm-svc
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: vwkdbm
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: vwkdbm
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - args:
+        - --config=/mms-config/local.config
+        command:
+        - ./mongodb-mms-automation-agent
+        image: repo.primetherapeutics.com:17443/mongodb:0.3
+        imagePullPolicy: IfNotPresent
+        name: mongodb-db
+        resources:
+          limits:
+            cpu: 250m
+            memory: 10Gi
+          requests:
+            cpu: 100m
+            memory: 5Gi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /mms-config
+          name: vwkdbm-config
+        - mountPath: /data
+          name: vwkdbm
+        - mountPath: /etc/ldap
+          name: ldap-conf
+      dnsPolicy: ClusterFirst
+      hostAliases:
+      - hostnames:
+        - lxkdbm-0.lxkdbm-svc.lx-tic-dev.svc.cluster.local
+        ip: 10.201.24.176
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsUser: 1000
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: local.config
+            path: local.config
+          name: vwkdbm-config
+        name: vwkdbm-config
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: ldap.conf
+            path: ldap.conf
+          name: ldap-conf
+        name: ldap-conf
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate
+  volumeClaimTemplates:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      name: vwkdbm
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 50Gi
+      storageClassName: csi-local
+      volumeMode: Filesystem
+    status:
+      phase: Pending
+status:
+  collisionCount: 0
+  currentRevision: vwkdbm-7c8f5578d6
+  observedGeneration: 2
+  replicas: 1
+  updateRevision: vwkdbm-6c75f8cf59
