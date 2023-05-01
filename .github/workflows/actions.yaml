@@ -2,9 +2,18 @@ name: dns_records
 on:
   workflow_dispatch:
     inputs:
-      C01-replicasVW:
+      C01-replicasLX:
         type: choice
-        description: 'cluster C01 VW Replicas count'
+        description: 'cluster C01 LX Replicas count'
+        options:
+        - "1"
+        - "2"
+        - "3"
+        - "4"
+        - "5"
+      C02-replicasLX:
+        type: choice
+        description: 'cluster C02 LX Replicas count'
         options:
         - "1"
         - "2"
@@ -29,17 +38,11 @@ jobs:
           
       - name: Get MongoDB Dump
         run: |
-          START=1
-          END=${{ inputs.C01-replicasVW }}
-          IFS=',' read -r -a array <<< ${{ inputs.clusters_list }}
-          for i in "${array[@]}"
-          do
-            for j in $(eval echo "{$START..$END}")
-            do
-              inst=$((j-1))
-              echo $i$inst
-            done
-          done
+          declare -A clusters
+          clusters[c01]=${{ inputs.C01-replicasLX }}
+          clusters[c02]=${{ inputs.C02-replicasLX }}
+          echo "${clusters[c02]}"
+          
           
  
 
