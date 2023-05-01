@@ -2,21 +2,20 @@ name: dns_records
 on:
   workflow_dispatch:
     inputs:
-      Storge_size:
+      C01-replicasVW:
+        type: choice
+        description: 'cluster C01 VW Replicas count'
+        options:
+        - "1"
+        - "2"
+        - "3"
+        - "4"
+        - "5"        
+      clusters_list:
         type: string
-        description: 'Provide the new storage size e.g: 80Gi'
+        description: 'list of clusters'
         required: true
-        default: '60Gi'
-      days:
-        type: string
-        required: true
-        default: '5'
-        
-      collections_list:
-        type: string
-        description: 'Enter list of collections to be excluded from mongodump separated by ",". ex: bridg-rule,age-limitation-mappings,addendum-summaries'
-        required: true
-        default: 'boy,mom'
+        default: 'c01,c02'
 env:
   NAMESPACES: 'dev,qa,stg'
 jobs:
@@ -30,15 +29,18 @@ jobs:
           
       - name: Get MongoDB Dump
         run: |
-          IFS=',' read -r -a array <<< ${{ inputs.collections_list }}
-          list=(babe srini boy mama)
-          function arraydiff() {
-            awk 'BEGIN{RS=ORS=" "}
-            {NR==FNR?a[$0]++:a[$0]--}
-            END{for(k in a)if(a[k])print k}' <(echo -n "${!1}") <(echo -n "${!2}")
-          }
-          req_dbs=($(arraydiff list[@] array[@]))
-          echo "req_dbs:" ${req_dbs[@]}
+          START=1
+          END=${{ inputs.C01-replicasVW }}
+          IFS=',' read -r -a array <<< ${{ inputs.clusters_list }}
+          for i in "${array[@]}"
+          do
+            for j in $(eval echo "{$START..$END}")
+            do
+              inst=$((j-1))
+              echo $i$inst
+            done
+          done
+          
  
 
 
