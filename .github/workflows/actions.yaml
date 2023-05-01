@@ -31,11 +31,6 @@ jobs:
   dns_records:
     runs-on: ubuntu-latest
     steps:
-      - name: Code Checkout
-        uses: actions/checkout@v3
-        with:
-          path: skynet
-          
       - name: Get MongoDB Dump
         run: |
           declare -A clusters
