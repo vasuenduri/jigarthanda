@@ -36,7 +36,11 @@ jobs:
           declare -A clusters
           clusters[c01]=${{ inputs.C01-replicasLX }}
           clusters[c02]=${{ inputs.C02-replicasLX }}
-          echo "${clusters[c02]}"
+          for i in "${clusters[@]}"
+          do
+              echo "c01 count: ${clusters[c01]}"
+              echo "c02 count: ${clusters[c02]}"
+          done
           
           
  
