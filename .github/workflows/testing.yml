@@ -1,0 +1,23 @@
+name: dns_records
+on:
+  workflow_dispatch:
+    inputs:
+      C01-replicasLX:
+        type: choice
+        description: 'cluster C01 LX Replicas count'
+        options:
+        - "0"
+        - "1"
+        - "2"
+        - "3"
+        - "4"
+env:
+  NAMESPACES: 'dev,qa,stg'
+jobs:
+  dns_records:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get MongoDB Dump
+        if: ${{ inputs.C01-replicasLX != '0' }}
+        run: |
+          echo "Hi there ${{ inputs.C01-replicasLX }}"
