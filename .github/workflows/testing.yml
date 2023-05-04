@@ -1,4 +1,4 @@
-name: dns_records
+name: teja_test
 on:
   workflow_dispatch:
     inputs:
@@ -14,7 +14,7 @@ on:
 env:
   NAMESPACES: 'dev,qa,stg'
 jobs:
-  dns_records:
+  teja_test:
     runs-on: ubuntu-latest
     steps:
       - name: Get MongoDB Dump
