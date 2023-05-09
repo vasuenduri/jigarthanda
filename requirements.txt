@@ -1,1 +1,5 @@
 passlib
+ansible
+ansible-lint
+jsondiff
+PyYAML
