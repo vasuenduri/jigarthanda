@@ -5,5 +5,5 @@
   tasks:
     - name: loop over template
       template:
-        src: skynet/replica-set-expose.yaml.j2
-        dest: skynet/replica-set-expose.yaml
+        src: replica-set-expose.yaml.j2
+        dest: replica-set-expose.yaml
