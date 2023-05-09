@@ -1,4 +1,4 @@
-{% for n in range(0, replicas | int) %}
+{% for n in range(pod_running_count, replicas | int) %}
 ---
 apiVersion: v1
 kind: Service
