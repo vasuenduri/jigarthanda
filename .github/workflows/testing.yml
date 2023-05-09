@@ -17,7 +17,20 @@ jobs:
   teja_test:
     runs-on: ubuntu-latest
     steps:
-      - name: Get MongoDB Dump
-        if: ${{ inputs.C01-replicasLX != '0' }}
+      - name: Code Checkout
+        uses: actions/checkout@v3
+        with:
+          path: skynet
+          
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.9
+          cache: 'pip'
+          
+      - name: Install dependencies Including Ansible
         run: |
-          echo "Hi there ${{ inputs.C01-replicasLX }}"
+          python -m pip install --upgrade pip
+          if [ -f skynet/requirements.txt ]; then pip install -r skynet/requirements.txt; fi
+          
+      
