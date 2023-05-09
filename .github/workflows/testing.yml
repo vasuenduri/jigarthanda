@@ -2,7 +2,7 @@ name: teja_test
 on:
   workflow_dispatch:
     inputs:
-      C01-replicasLX:
+      c01-replicasLX:
         type: choice
         description: 'cluster C01 LX Replicas count'
         options:
@@ -13,6 +13,7 @@ on:
         - "4"
 env:
   NAMESPACES: 'dev,qa,stg'
+  pod_running_count_c01_lx: '2'
 jobs:
   teja_test:
     runs-on: ubuntu-latest
@@ -33,4 +34,8 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f skynet/requirements.txt ]; then pip install -r skynet/requirements.txt; fi
           
-      
+      - name: Create C01 LX replica-set-expose.yaml file
+        if: ${{ inputs.c01-replicasLX != '0' }}
+        run: |
+          ansible-playbook --connection=local --inventory 127.0.0.1,--limit 127.0.0.1  skynet/replicaSet-play.yaml --extra-vars "pod_running_count=$pod_running_count_c01_lx replicas=${{ inputs.c01-replicasLX}}"
+          cat replica-set-expose.yaml
