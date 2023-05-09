@@ -1,0 +1,15 @@
+{% for n in range(0, replicas | int) %}
+---
+apiVersion: v1
+kind: Service
+spec:
+  externalTrafficPolicy: Cluster
+  ports:
+  - port: 27017
+    protocol: TCP
+    targetPort: 27017
+  selector:
+    statefulset.kubernetes.io/pod-name: {% raw %}hi{% endraw %}-{{ n }}
+  sessionAffinity: None
+  type: LoadBalancer
+{% endfor %}
