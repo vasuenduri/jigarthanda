@@ -34,7 +34,7 @@ jobs:
       - name: Get MongoDB Dump
         run: |
           START=0
-          REQ_NUM=inputs.c01-replicasLX
+          REQ_NUM=${{inputs.c01-replicasLX}}
           END=$(($svc_count + $REQ_NUM - 1))  
           for i in $(eval echo "{$START..$END}")
           do
