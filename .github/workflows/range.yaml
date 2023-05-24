@@ -536,7 +536,7 @@ jobs:
             fi
             lxkdbmc02_dep_exist=$(kubectl get deployment -n lx-${{ inputs.namespace }} -o name | grep "lxkdbmc02" | tr -d 'deployment.apps/' | wc -l | tr -d ' ')
             echo "lxkdbmc02_dep_exist=${lxkdbmc02_dep_exist}" >> $GITHUB_ENV
-            if ${{ "$lxkdbmc02_dep_exist" -eq "1" }}
+            if ${{ env.lxkdbmc02_dep_exist == 1 }}
             then
                 HOSTNAME=lxkdbmc02-$i.lxkdbmc02-svc.lx-${{ inputs.namespace }}.svc.cluster.local
                 echo "SVC_IP: $SVC_IP"
@@ -556,7 +556,7 @@ jobs:
             fi
             vwkdbmc01_dep_exist=$(kubectl get deployment -n vw-${{ inputs.namespace }} -o name | grep "vwkdbmc01" | tr -d 'deployment.apps/' | wc -l | tr -d ' ')
             echo "vwkdbmc01_dep_exist=${vwkdbmc01_dep_exist}" >> $GITHUB_ENV
-            if ${{ "$vwkdbmc01_dep_exist" -eq "1" }}
+            if ${{ env.vwkdbmc01_dep_exist == 1 }}
             then
                 HOSTNAME=vwkdbmc01-$i.vwkdbmc01-svc.vw-${{ inputs.namespace }}.svc.cluster.local
                 echo "SVC_IP: $SVC_IP"
@@ -576,7 +576,7 @@ jobs:
             fi
             vwkdbmc02_dep_exist=$(kubectl get deployment -n vw-${{ inputs.namespace }} -o name | grep "vwkdbmc02" | tr -d 'deployment.apps/' | wc -l | tr -d ' ')
             echo "vwkdbmc02_dep_exist=${vwkdbmc02_dep_exist}" >> $GITHUB_ENV
-            if ${{ "$vwkdbmc02_dep_exist" -eq "1" }}
+            if ${{ env.vwkdbmc02_dep_exist == 1 }}
             then
                 HOSTNAME=vwkdbmc02-$i.vwkdbmc02-svc.vw-${{ inputs.namespace }}.svc.cluster.local
                 echo "SVC_IP: $SVC_IP"
