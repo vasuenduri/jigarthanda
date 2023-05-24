@@ -38,6 +38,7 @@ jobs:
           END=$(($svc_count + $REQ_NUM - 1))  
           for i in $(eval echo "{$START..$END}")
           do
+          echo "i: $i"
           cat >> $GITHUB_WORKSPACE/replica-set-expose.yaml << EOF
           ---
           apiVersion: v1
