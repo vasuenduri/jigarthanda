@@ -1,4 +1,4 @@
-name: MongoDB-Deploy-Pem-helm
+name: MongoDB-Deploy-Additional-Pods
 on:
   workflow_dispatch:
     inputs:
@@ -6,6 +6,7 @@ on:
         type: choice
         description: 'Namespace Environment'
         options:
+        - tic23-dev
         - car-prd
         - clientmember-dev
         - accums-prd
@@ -35,7 +36,8 @@ on:
         - cms-stg
         - cms-prd
         - tic-dev
-        - tic-qa
+        - tic00-dev
+        - tic11-dev
         - aud-dev
         - ch-dev
         - cov-dev
@@ -54,6 +56,8 @@ on:
         - mcef-stg
         - mcef-prd
         - masterrouter-dev
+        - masterrouter-tst
+        - masterrouter-qa
       env:
         type: choice
         description: 'Cluster'
@@ -67,6 +71,7 @@ on:
         type: choice
         description: 'cluster C01 LX Replicas count'
         options:
+        - "0"
         - "1"
         - "2"
         - "3"
@@ -76,6 +81,7 @@ on:
         type: choice
         description: 'cluster C02 LX Replicas count'
         options:
+        - "0"
         - "1"
         - "2"
         - "3"
@@ -85,6 +91,7 @@ on:
         type: choice
         description: 'cluster C01 VW Replicas count'
         options:
+        - "0"
         - "1"
         - "2"
         - "3"
@@ -94,23 +101,12 @@ on:
         type: choice
         description: 'cluster C02 VW Replicas count'
         options:
+        - "0"
         - "1"
         - "2"
         - "3"
         - "4"
         - "5"
-      require_cluster_c01:
-        type: choice
-        description: 'Select yes if you have any repliacs in c01 cluster that needs deployment'
-        options:
-        - "yes"
-        - "no"
-      require_cluster_c02:
-        type: choice
-        description: 'Select yes if you have any repliacs in c02 cluster that needs deployment'
-        options:
-        - "yes"
-        - "no"
       dbpathStorage:
         type: choice
         description: 'Storage'
@@ -138,7 +134,7 @@ env:
 
 
 jobs:
-  helm-pem:
+  additional-pods:
     runs-on: docker
     env:
       docker_version: 0.3
@@ -239,9 +235,9 @@ jobs:
       - name: helm permissions     
         run: |
           cd /tmp/
-          tar xvf helm.tar.gz
-          ls -al
-          ls -al linux-amd64/
+          sudo tar xvf helm.tar.gz
+          sudo ls -al
+          sudo ls -al linux-amd64/
           sudo mv linux-amd64/helm /usr/local/bin
 
       - name: Set up Python 3.9
@@ -249,477 +245,760 @@ jobs:
         with:
           python-version: 3.9
           cache: 'pip'
-          
-      - name: Install dependencies Including Ansible
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f skynet/requirements.txt ]; then pip install -r skynet/requirements.txt; fi
 
-      - name: write to file
-        env:
-          INVENTORY: ${{ secrets.INVENTORY }}
-        run: 'echo "$INVENTORY" > inventory'
-        
       - name: Log in to nonp C01 LX TKGI
-        if: ${{ (inputs.require_cluster_c01 == 'yes') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
+        if: ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
         run: |
           tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-nonp-lx-f02 -a api.mkp-nonp-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
           kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-nonp-lx-$cluster4_5
+          pod_running_count_c01_lx=$(kubectl get pods -n lx-${{ inputs.namespace }} -o name | grep "lxkdbmc01" | tr -d 'pod/' | wc -l | tr -d ' ')
+          pod_desire_count_c01_lx=$(($pod_running_count_c01_lx + ${{ inputs.c01-replicasLX }} ))
+          echo "pod_desire_count_c01_lx=${pod_desire_count_c01_lx}" >> $GITHUB_ENV
+          echo "pod_running_count_c01_lx=${pod_running_count_c01_lx}" >> $GITHUB_ENV
+
 
       - name: Log in to prod C01 LX TKGI
-        if: ${{ (inputs.require_cluster_c01 == 'yes') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
+        if: ${{ (inputs.env == 'stage') || (inputs.env == 'prod') }}
         run: |
           tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-prod-lx-f02 -a api.mkp-prod-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
           kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-prod-lx-$cluster4_5
+          pod_running_count_c01_lx=$(kubectl get pods -n lx-${{ inputs.namespace }} -o name | grep "lxkdbmc01" | tr -d 'pod/' | wc -l | tr -d ' ')
+          pod_desire_count_c01_lx=$(($pod_running_count_c01_lx + ${{ inputs.c01-replicasLX }} ))
+          echo "pod_desire_count_c01_lx=${pod_desire_count_c01_lx}" >> $GITHUB_ENV
+          echo "pod_running_count_c01_lx=${pod_running_count_c01_lx}" >> $GITHUB_ENV
+        
 
       - name: Create C01 LX replica-set-expose.yaml file
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+        if: ${{ inputs.c01-replicasLX != '0' }}
         run: |
-          ansible-playbook skynet/replicaSet-play.yaml --extra-vars "replicas=${{ inputs.c01-replicasLX}}"
+          svc_count=$(kubectl get svc -n lx-${{ inputs.namespace }} -o name | grep -v "lxkdbmc01-svc" | tr -d 'service/' | wc -l | tr -d ' ')
+          START=$svc_count
+          REQ_NUM=$(($svc_count + ${{inputs.c01-replicasLX}}))
+          END=$(($svc_count + $REQ_NUM - 1))  
+          for i in $(eval echo "{$START..$END}")
+          do
+          cat >> skynet/deployment_pod/templates/replica-set-expose.yaml << EOF
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: lxkdbmc01-$i
+            namespace: lx-${{ inputs.namespace }}
+          spec:
+            externalTrafficPolicy: Cluster
+            ports:
+            - port: 27017
+              protocol: TCP
+              targetPort: 27017
+            selector:
+              statefulset.kubernetes.io/pod-name: lxkdbmc01-$i
+            sessionAffinity: None
+            type: LoadBalancer
+          EOF
+          done
       
       - name: Execute Helm Install LX C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+        if: ${{ inputs.c01-replicasLX != '0' }}
         run: |
+          cat skynet/deployment_pod/templates/replica-set-expose.yaml
           groupId=$(kubectl get secret ${{ inputs.namespace }}-secret -n lx-${{ inputs.namespace }} --template={{.data.mmsGroupId}} | base64 -di)
           apikey=$(kubectl get secret ${{ inputs.namespace }}-secret -n lx-${{ inputs.namespace }} --template={{.data.mmsApiKey}} | base64 -di)
-          helm upgrade --install lxkdbmc01 ./skynet/replicaSet --set dockerVer=$docker_version --set replicas=${{ inputs.c01-replicasLX }} --set memorylimits=${{ env.memorylimits }} --set memoryrequests=${{ env.memoryrequests }} --set cpulimits=${{ env.cpulimits }} --set cpurequests=${{ env.cpurequests }} --set dbpathStorage=${{ inputs.dbpathStorage }} --set dbStorageType=$dbStorageType --set mmsApiKey=$apikey --set mmsGroupId=$groupId -n lx-${{ inputs.namespace }}
+          helm upgrade --install lxkdbmc01 ./skynet/deployment_pod --set dockerVer=$docker_version --set replicas=$pod_desire_count_c01_lx --set memorylimits=${{ env.memorylimits }} --set memoryrequests=${{ env.memoryrequests }} --set cpulimits=${{ env.cpulimits }} --set cpurequests=${{ env.cpurequests }} --set dbpathStorage=${{ inputs.dbpathStorage }} --set dbStorageType=$dbStorageType --set mmsApiKey=$apikey --set mmsGroupId=$groupId -n lx-${{ inputs.namespace }}
 
-      - name: Create the LX C01 stateful set file to update
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+      - name: Create the LX C01 deployment set file to update
+        if: ${{ inputs.c01-replicasLX != '0' }}
         run: |
-          kubectl get sts lxkdbmc01 -n lx-${{ inputs.namespace }} -o yaml > $GITHUB_WORKSPACE/lx-c01-statefulset.yaml
-
+          kubectl get deployment lxkdbmc01 -n lx-${{ inputs.namespace }} -o yaml > $GITHUB_WORKSPACE/lx-c01-deployment.yaml
+          cat lx-c01-deployment.yaml
+          
       - name: Log in to nonp C02 LX TKGI
-        if: ${{ (inputs.require_cluster_c02 == 'yes') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
+        if: ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
         run: |
           tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-f02 -a api.mkp-nonp-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
           kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-$cluster4_5
+          pod_running_count_c02_lx=$(kubectl get pods -n lx-${{ inputs.namespace }} -o name | grep "lxkdbmc02" | tr -d 'pod/' | wc -l | tr -d ' ')
+          pod_desire_count_c02_lx=$(($pod_running_count_c02_lx + ${{ inputs.c02-replicasLX }} ))
+          echo "pod_desire_count_c02_lx=${pod_desire_count_c02_lx}" >> $GITHUB_ENV
+          echo "pod_running_count_c02_lx=${pod_running_count_c02_lx}" >> $GITHUB_ENV
+
 
       - name: Log in to prod C02 LX TKGI
-        if: ${{ (inputs.require_cluster_c02 == 'yes') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
+        if: ${{ (inputs.env == 'stage') || (inputs.env == 'prod') }}
         run: |
           tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-lx-f02 -a api.mkp-prod-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
           kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-lx-$cluster4_5
+          pod_running_count_c02_lx=$(kubectl get pods -n lx-${{ inputs.namespace }} -o name | grep "lxkdbmc02" | tr -d 'pod/' | wc -l | tr -d ' ')
+          pod_desire_count_c02_lx=$(($pod_running_count_c02_lx + ${{ inputs.c02-replicasLX }} ))
+          echo "pod_desire_count_c02_lx=${pod_desire_count_c02_lx}" >> $GITHUB_ENV
+          echo "pod_running_count_c02_lx=${pod_running_count_c02_lx}" >> $GITHUB_ENV
 
       - name: Create C02 LX replica-set-expose.yaml file
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
+        if: ${{ inputs.c02-replicasLX != '0' }}
         run: |
-          ansible-playbook skynet/replicaSet-play.yaml --extra-vars "replicas=${{ inputs.c02-replicasLX}}"
+          svc_count=$(kubectl get svc -n lx-${{ inputs.namespace }} -o name | grep -v "lxkdbmc02-svc" | tr -d 'service/' | wc -l | tr -d ' ')
+          START=$svc_count
+          REQ_NUM=$(($svc_count + ${{inputs.c01-replicasLX}}))
+          END=$(($svc_count + $REQ_NUM - 1))  
+          for i in $(eval echo "{$START..$END}")
+          do
+          cat >> skynet/deployment_pod/templates/replica-set-expose.yaml << EOF
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: lxkdbmc02-$i
+            namespace: lx-${{ inputs.namespace }}
+          spec:
+            externalTrafficPolicy: Cluster
+            ports:
+            - port: 27017
+              protocol: TCP
+              targetPort: 27017
+            selector:
+              statefulset.kubernetes.io/pod-name: lxkdbmc02-$i
+            sessionAffinity: None
+            type: LoadBalancer
+          EOF
+          done
       
       - name: Execute Helm Install LX C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
+        if: ${{ inputs.c02-replicasLX != '0' }}
         run: |
           groupId=$(kubectl get secret ${{ inputs.namespace }}-secret -n lx-${{ inputs.namespace }} --template={{.data.mmsGroupId}} | base64 -di)
           apikey=$(kubectl get secret ${{ inputs.namespace }}-secret -n lx-${{ inputs.namespace }} --template={{.data.mmsApiKey}} | base64 -di)
-          helm upgrade --install lxkdbmc02 ./skynet/replicaSet --set dockerVer=$docker_version --set replicas=${{ inputs.c02-replicasLX }} --set memorylimits=${{ env.memorylimits }} --set memoryrequests=${{ env.memoryrequests }} --set cpulimits=${{ env.cpulimits }} --set cpurequests=${{ env.cpurequests }} --set dbpathStorage=${{ inputs.dbpathStorage }} --set dbStorageType=$dbStorageType --set mmsApiKey=$apikey --set mmsGroupId=$groupId -n lx-${{ inputs.namespace }}
+          helm upgrade --install lxkdbmc02 ./skynet/deployment_pod --set dockerVer=$docker_version --set replicas=$pod_desire_count_c02_lx --set memorylimits=${{ env.memorylimits }} --set memoryrequests=${{ env.memoryrequests }} --set cpulimits=${{ env.cpulimits }} --set cpurequests=${{ env.cpurequests }} --set dbpathStorage=${{ inputs.dbpathStorage }} --set dbStorageType=$dbStorageType --set mmsApiKey=$apikey --set mmsGroupId=$groupId -n lx-${{ inputs.namespace }}
 
-      - name: Create the LX C02 stateful set file to update
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
+      - name: Create the LX C02 deployment set file to update
+        if: ${{ inputs.c02-replicasLX != '0' }}
         run: |
-          kubectl get sts lxkdbmc02 -n lx-${{ inputs.namespace }} -o yaml > $GITHUB_WORKSPACE/lx-c02-statefulset.yaml
-
+          kubectl get deployment lxkdbmc02 -n lx-${{ inputs.namespace }} -o yaml > $GITHUB_WORKSPACE/lx-c02-deployment.yaml
+          cat $GITHUB_WORKSPACE/lx-c02-deployment.yaml
+          
       - name: Log in to nonp C01 VW TKGI
-        if: ${{ (inputs.require_cluster_c01 == 'yes') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
+        if: ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
         run: |
           tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-nonp-vw-f02 -a api.mkp-nonp-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
           kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-nonp-vw-$cluster4_5
+          pod_running_count_c01_vw=$(kubectl get pods -n vw-${{ inputs.namespace }} -o name | grep "vwkdbmc01" | tr -d 'pod/' | wc -l | tr -d ' ')
+          pod_desire_count_c01_vw=$(($pod_running_count_c01_vw + ${{ inputs.c01-replicasVW }} ))
+          echo "pod_desire_count_c01_vw=${pod_desire_count_c01_vw}" >> $GITHUB_ENV
+          echo "pod_running_count_c01_vw=${pod_running_count_c01_vw}" >> $GITHUB_ENV
 
       - name: Log in to prod C01 VW TKGI
-        if: ${{ (inputs.require_cluster_c01 == 'yes') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
+        if: ${{ (inputs.env == 'stage') || (inputs.env == 'prod') }}
         run: |
           tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-prod-vw-f02 -a api.mkp-prod-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
           kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-prod-vw-$cluster4_5
+          pod_running_count_c01_vw=$(kubectl get pods -n vw-${{ inputs.namespace }} -o name | grep "vwkdbmc01" | tr -d 'pod/' | wc -l | tr -d ' ')
+          pod_desire_count_c01_vw=$(($pod_running_count_c01_vw + ${{ inputs.c01-replicasVW }} ))
+          echo "pod_desire_count_c01_vw=${pod_desire_count_c01_vw}" >> $GITHUB_ENV
+          echo "pod_running_count_c01_vw=${pod_running_count_c01_vw}" >> $GITHUB_ENV
 
-      - name: Create VW C01 replica-set-expose.yaml file
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+      - name: Create C01 VW replica-set-expose.yaml file
+        if: ${{ inputs.c01-replicasVW != '0' }}
         run: |
-          ansible-playbook skynet/replicaSet-play.yaml --extra-vars "replicas=${{ inputs.inputs.c01-replicasVW}}"
+          svc_count=$(kubectl get svc -n vw-${{ inputs.namespace }} -o name | grep -v "vwkdbmc01-svc" | tr -d 'service/' | wc -l | tr -d ' ')
+          START=$svc_count
+          REQ_NUM=$(($svc_count + ${{inputs.c01-replicasLX}}))
+          END=$(($svc_count + $REQ_NUM - 1))  
+          for i in $(eval echo "{$START..$END}")
+          do
+          cat >> skynet/deployment_pod/templates/replica-set-expose.yaml << EOF
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: vwkdbmc01-$i
+            namespace: vw-${{ inputs.namespace }}
+          spec:
+            externalTrafficPolicy: Cluster
+            ports:
+            - port: 27017
+              protocol: TCP
+              targetPort: 27017
+            selector:
+              statefulset.kubernetes.io/pod-name: vwkdbmc01-$i
+            sessionAffinity: None
+            type: LoadBalancer
+          EOF
+          done
       
       - name: Execute Helm Install VW C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+        if: ${{ inputs.c01-replicasVW != '0' }}
         run: |
           groupId=$(kubectl get secret ${{ inputs.namespace }}-secret -n vw-${{ inputs.namespace }} --template={{.data.mmsGroupId}} | base64 -di)
-          apikey=$(kubectl get secret ${{ inputs.namespace }}-secret -n vw-${{ inputs.namespace }} --template={{.data.mmsApiKey}} | base64 -di)
-          helm upgrade --install vwkdbmc01 ./skynet/replicaSet --set dockerVer=$docker_version --set replicas=${{ inputs.c01-replicasVW }} --set memorylimits=${{ env.memorylimits }} --set memoryrequests=${{ env.memoryrequests }} --set cpulimits=${{ env.cpulimits }} --set cpurequests=${{ env.cpurequests }} --set dbpathStorage=${{ inputs.dbpathStorage }} --set dbStorageType=$dbStorageType --set mmsApiKey=$apikey --set mmsGroupId=$groupId -n vw-${{ inputs.namespace }}
+          apikey=$(kubectl get secret ${{ inputs.namespace }}-secret -n lx-${{ inputs.namespace }} --template={{.data.mmsApiKey}} | base64 -di)
+          helm upgrade --install vwkdbmc01 ./skynet/deployment_pod --set dockerVer=$docker_version --set replicas=$pod_desire_count_c01_vw --set memorylimits=${{ env.memorylimits }} --set memoryrequests=${{ env.memoryrequests }} --set cpulimits=${{ env.cpulimits }} --set cpurequests=${{ env.cpurequests }} --set dbpathStorage=${{ inputs.dbpathStorage }} --set dbStorageType=$dbStorageType --set mmsApiKey=$apikey --set mmsGroupId=$groupId -n vw-${{ inputs.namespace }}
 
-      - name: Create the VW C01 stateful set file to update
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+      - name: Create the VW C01 deployment set file to update
+        if: ${{ inputs.c01-replicasVW != '0' }}
         run: |
-          kubectl get sts vwkdbmc01 -n vw-${{ inputs.namespace }} -o yaml > $GITHUB_WORKSPACE/vw-c01-statefulset.yaml
+          kubectl get deployment vwkdbmc01 -n vw-${{ inputs.namespace }} -o yaml > $GITHUB_WORKSPACE/vw-c01-deployment.yaml
+          cat $GITHUB_WORKSPACE/vw-c01-deployment.yaml
+
 
       - name: Log in to nonp C02 VW TKGI
-        if: ${{ (inputs.require_cluster_c02 == 'yes') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
+        if: ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
         run: |
           tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-f02 -a api.mkp-nonp-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
           kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-$cluster4_5
+          pod_running_count_c02_vw=$(kubectl get pods -n vw-${{ inputs.namespace }} -o name | grep "vwkdbmc02" | tr -d 'pod/' | wc -l | tr -d ' ')
+          pod_desire_count_c02_vw=$(($pod_running_count_c02_vw + ${{ inputs.c02-replicasVW }} ))
+          echo "pod_desire_count_c02_vw=${pod_desire_count_c02_vw}" >> $GITHUB_ENV
+          echo "pod_running_count_c02_vw=${pod_running_count_c02_vw}" >> $GITHUB_ENV
 
       - name: Log in to prod C02 VW TKGI
-        if: ${{ (inputs.require_cluster_c02 == 'yes') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
+        if: ${{ (inputs.env == 'stage') || (inputs.env == 'prod') }}
         run: |
           tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-vw-f02 -a api.mkp-prod-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
           kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-vw-$cluster4_5
+          pod_running_count_c02_vw=$(kubectl get pods -n vw-${{ inputs.namespace }} -o name | grep "vwkdbmc02" | tr -d 'pod/' | wc -l | tr -d ' ')
+          pod_desire_count_c02_vw=$(($pod_running_count_c02_vw + ${{ inputs.c02-replicasVW }} ))
+          echo "pod_desire_count_c02_vw=${pod_desire_count_c02_vw}" >> $GITHUB_ENV
+          echo "pod_running_count_c02_vw=${pod_running_count_c02_vw}" >> $GITHUB_ENV
 
-      - name: Create VW C02 replica-set-expose.yaml file
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
+      - name: Create C02 VW replica-set-expose.yaml file
+        if: ${{ inputs.c02-replicasVW != '0' }}
         run: |
-          ansible-playbook skynet/replicaSet-play.yaml --extra-vars "replicas=${{ inputs.inputs.c02-replicasVW}}"
+          svc_count=$(kubectl get svc -n vw-${{ inputs.namespace }} -o name | grep -v "vwkdbmc02-svc" | tr -d 'service/' | wc -l | tr -d ' ')
+          START=$svc_count
+          REQ_NUM=$(($svc_count + ${{inputs.c01-replicasLX}}))
+          END=$(($svc_count + $REQ_NUM - 1))  
+          for i in $(eval echo "{$START..$END}")
+          do
+          cat >> skynet/deployment_pod/templates/replica-set-expose.yaml << EOF
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: vwkdbmc02-$i
+            namespace: vw-${{ inputs.namespace }}
+          spec:
+            externalTrafficPolicy: Cluster
+            ports:
+            - port: 27017
+              protocol: TCP
+              targetPort: 27017
+            selector:
+              statefulset.kubernetes.io/pod-name: vwkdbmc02-$i
+            sessionAffinity: None
+            type: LoadBalancer
+          EOF
+          done
       
       - name: Execute Helm Install VW C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
+        if: ${{ inputs.c02-replicasVW != '0' }}
         run: |
           groupId=$(kubectl get secret ${{ inputs.namespace }}-secret -n vw-${{ inputs.namespace }} --template={{.data.mmsGroupId}} | base64 -di)
-          apikey=$(kubectl get secret ${{ inputs.namespace }}-secret -n vw-${{ inputs.namespace }} --template={{.data.mmsApiKey}} | base64 -di)
-          helm upgrade --install vwkdbmc02 ./skynet/replicaSet --set dockerVer=$docker_version --set replicas=${{ inputs.c02-replicasVW }} --set memorylimits=${{ env.memorylimits }} --set memoryrequests=${{ env.memoryrequests }} --set cpulimits=${{ env.cpulimits }} --set cpurequests=${{ env.cpurequests }} --set dbpathStorage=${{ inputs.dbpathStorage }} --set dbStorageType=$dbStorageType --set mmsApiKey=$apikey --set mmsGroupId=$groupId -n vw-${{ inputs.namespace }}
+          apikey=$(kubectl get secret ${{ inputs.namespace }}-secret -n lx-${{ inputs.namespace }} --template={{.data.mmsApiKey}} | base64 -di)
+          helm upgrade --install vwkdbmc02 ./skynet/deployment_pod --set dockerVer=$docker_version --set replicas=$pod_desire_count_c02_vw --set memorylimits=${{ env.memorylimits }} --set memoryrequests=${{ env.memoryrequests }} --set cpulimits=${{ env.cpulimits }} --set cpurequests=${{ env.cpurequests }} --set dbpathStorage=${{ inputs.dbpathStorage }} --set dbStorageType=$dbStorageType --set mmsApiKey=$apikey --set mmsGroupId=$groupId -n vw-${{ inputs.namespace }}
 
-      - name: Create the VW C02 stateful set file to update
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
+      - name: Create the VW C02 deployment set file to update
+        if: ${{ inputs.c02-replicasVW != '0' }}
         run: |
-          kubectl get sts vwkdbmc02 -n vw-${{ inputs.namespace }} -o yaml > $GITHUB_WORKSPACE/vw-c02-statefulset.yaml
+          kubectl get deployment vwkdbmc02 -n vw-${{ inputs.namespace }} -o yaml > $GITHUB_WORKSPACE/vw-c02-deployment.yaml
+          cat $GITHUB_WORKSPACE/vw-c02-deployment.yaml
+
+      - name: Update the LX C01 SVC IP in all places
+        if: ${{ inputs.c01-replicasLX != '0' }}
+        run: |
+          sleep 10
+          echo "Log in to nonp C01 LX TKGI"
+          if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+          then
+            tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-nonp-lx-f02 -a api.mkp-nonp-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+            kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-nonp-lx-$cluster4_5
+          else 
+            tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-prod-lx-f02 -a api.mkp-prod-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+            kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-prod-lx-$cluster4_5
+          fi
+          svc_count=$(kubectl get svc -n lx-${{ inputs.namespace }} -o name | grep -v "lxkdbmc01-svc" | tr -d 'service/' | wc -l | tr -d ' ')
+          START=$(( $svc_count - 1 ))
+          REQ_NUM=$(($svc_count + ${{inputs.c01-replicasLX}}))
+          END=$(($svc_count - $REQ_NUM))
+          for i in $(eval echo "{$START..$END}")
+          do
+            SVC_IP=$(kubectl get svc -n lx-${{ inputs.namespace }} lxkdbmc01-$i -o jsonpath="{.status.loadBalancer.ingress[*].ip}")
+            HOSTNAME=lxkdbmc01-$i.lxkdbmc01-svc.lx-${{ inputs.namespace }}.svc.cluster.local
+            echo "SVC_IP: $SVC_IP"
+            echo "HOSTNAME: $HOSTNAME"
+            kubectl patch deployment lxkdbmc01 -n lx-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0", "value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+            echo "patched in c01 lx"
+            sleep 10
+            echo "Log in to nonp C02 LX TKGI"
+            if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+            then
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-f02 -a api.mkp-nonp-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-$cluster4_5
+            else 
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-lx-f02 -a api.mkp-prod-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-lx-$cluster4_5
+            fi
+            lxkdbmc02_dep_exist=$(kubectl get deployment -n lx-${{ inputs.namespace }} -o name | grep "lxkdbmc02" | tr -d 'deployment.apps/' | wc -l | tr -d ' ')
+            echo "lxkdbmc02_dep_exist=${lxkdbmc02_dep_exist}" >> $GITHUB_ENV
+            if ${{ "$lxkdbmc02_dep_exist" -eq "1" }}
+            then
+                HOSTNAME=lxkdbmc02-$i.lxkdbmc02-svc.lx-${{ inputs.namespace }}.svc.cluster.local
+                echo "SVC_IP: $SVC_IP"
+                echo "HOSTNAME: $HOSTNAME"
+                kubectl patch deployment lxkdbmc02 -n lx-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0","value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+                echo "patched in c02 lx"
+            fi
+            sleep 10
+            echo "Log in to nonp C01 VW TKGI"
+            if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+            then
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-nonp-vw-f02 -a api.mkp-nonp-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-nonp-vw-$cluster4_5
+            else 
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-prod-vw-f02 -a api.mkp-prod-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-prod-vw-$cluster4_5
+            fi
+            vwkdbmc01_dep_exist=$(kubectl get deployment -n vw-${{ inputs.namespace }} -o name | grep "vwkdbmc01" | tr -d 'deployment.apps/' | wc -l | tr -d ' ')
+            echo "vwkdbmc01_dep_exist=${vwkdbmc01_dep_exist}" >> $GITHUB_ENV
+            if ${{ "$vwkdbmc01_dep_exist" -eq "1" }}
+            then
+                HOSTNAME=vwkdbmc01-$i.vwkdbmc01-svc.vw-${{ inputs.namespace }}.svc.cluster.local
+                echo "SVC_IP: $SVC_IP"
+                echo "HOSTNAME: $HOSTNAME"
+                kubectl patch deployment vwkdbmc01 -n vw-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0","value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+                echo "patched in c01 vw"
+            fi
+            sleep 10
+            echo "Log in to nonp C02 VW TKGI"
+            if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+            then
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-f02 -a api.mkp-nonp-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-$cluster4_5
+            else 
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-vw-f02 -a api.mkp-prod-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-vw-$cluster4_5
+            fi
+            vwkdbmc02_dep_exist=$(kubectl get deployment -n vw-${{ inputs.namespace }} -o name | grep "vwkdbmc02" | tr -d 'deployment.apps/' | wc -l | tr -d ' ')
+            echo "vwkdbmc02_dep_exist=${vwkdbmc02_dep_exist}" >> $GITHUB_ENV
+            if ${{ "$vwkdbmc02_dep_exist" -eq "1" }}
+            then
+                HOSTNAME=vwkdbmc02-$i.vwkdbmc02-svc.vw-${{ inputs.namespace }}.svc.cluster.local
+                echo "SVC_IP: $SVC_IP"
+                echo "HOSTNAME: $HOSTNAME"
+                kubectl patch deployment vwkdbmc02 -n vw-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0","value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+                echo "patched in c02 vw"
+            fi
+            sleep 10
+          done
+        shell: bash
+
+          
+      - name: Update the LX C02 SVC IP in all places
+        if: ${{ inputs.c02-replicasLX != '0' }}
+        run: |
+          sleep 10
+          echo "Log in to nonp C02 LX TKGI"
+          if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+          then
+            tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-f02 -a api.mkp-nonp-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+            kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-$cluster4_5
+          else 
+            tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-lx-f02 -a api.mkp-prod-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+            kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-lx-$cluster4_5
+          fi
+          svc_count=$(kubectl get svc -n lx-${{ inputs.namespace }} -o name | grep -v "lxkdbmc02-svc" | tr -d 'service/' | wc -l | tr -d ' ')
+          START=$(( $svc_count - 1 ))
+          REQ_NUM=$(($svc_count + ${{inputs.c01-replicasLX}}))
+          END=$(($svc_count - $REQ_NUM))
+          for i in $(eval echo "{$START..$END}")
+          do
+            SVC_IP=$(kubectl get svc -n lx-${{ inputs.namespace }} lxkdbmc02-$i -o jsonpath="{.status.loadBalancer.ingress[*].ip}")
+            HOSTNAME=lxkdbmc02-$i.lxkdbmc02-svc.lx-${{ inputs.namespace }}.svc.cluster.local
+            kubectl patch deployment lxkdbmc02 -n lx-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0", "value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+            sleep 10
+            echo "Log in to nonp C01 LX TKGI"
+            if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+            then
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-nonp-lx-f02 -a api.mkp-nonp-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-nonp-lx-$cluster4_5
+            else 
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-prod-lx-f02 -a api.mkp-prod-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-prod-lx-$cluster4_5
+            fi
+            HOSTNAME=lxkdbmc01-$i.lxkdbmc01-svc.lx-${{ inputs.namespace }}.svc.cluster.local
+            kubectl patch deployment lxkdbmc01 -n lx-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0", "value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+            sleep 10
+            echo "Log in to nonp C01 VW TKGI"
+            if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+            then
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-nonp-vw-f02 -a api.mkp-nonp-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-nonp-vw-$cluster4_5
+            else 
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-prod-vw-f02 -a api.mkp-prod-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-prod-vw-$cluster4_5
+            fi
+            HOSTNAME=vwkdbmc01-$i.vwkdbmc01-svc.vw-${{ inputs.namespace }}.svc.cluster.local
+            kubectl patch deployment vwkdbmc01 -n vw-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0", "value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+            sleep 10
+            echo "Log in to nonp C02 VW TKGI"
+            if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+            then
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-f02 -a api.mkp-nonp-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-$cluster4_5
+            else 
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-vw-f02 -a api.mkp-prod-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-vw-$cluster4_5
+            fi
+            HOSTNAME=vwkdbmc02-$i.vwkdbmc02-svc.vw-${{ inputs.namespace }}.svc.cluster.local
+            kubectl patch deployment vwkdbmc02 -n vw-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0", "value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+            sleep 10
+          done
+        shell: bash 
       
-      - name: Update the LX C01 stateful set with VW host alias configs
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+      - name: Update the VW C01 SVC IP in all places
+        if: ${{ inputs.c01-replicasVW != '0' }}
         run: |
-          sleep 60
-          ansible-playbook skynet/host-alias-play.yaml --extra-vars "namespace=vw-${{ inputs.namespace }} statefulSet_file=$GITHUB_WORKSPACE/lx-c01-statefulset.yaml release=vwkdbmc01 replicas=${{ inputs.C01-replicasVW}}"
-          cat $GITHUB_WORKSPACE/lx-c01-statefulset.yaml
+          sleep 10
+          echo "Log in to nonp C01 VW TKGI"
+          if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+          then
+            tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-nonp-vw-f02 -a api.mkp-nonp-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+            kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-nonp-vw-$cluster4_5
+          else 
+            tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-prod-vw-f02 -a api.mkp-prod-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+            kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-prod-vw-$cluster4_5
+          fi
+          svc_count=$(kubectl get svc -n vw-${{ inputs.namespace }} -o name | grep -v "vwkdbmc01-svc" | tr -d 'service/' | wc -l | tr -d ' ')
+          START=$(( $svc_count - 1 ))
+          REQ_NUM=$(($svc_count + ${{inputs.c01-replicasLX}}))
+          END=$(($svc_count - $REQ_NUM))
+          for i in $(eval echo "{$START..$END}")
+          do
+            SVC_IP=$(kubectl get svc -n vw-${{ inputs.namespace }} vwkdbmc01-$i -o jsonpath="{.status.loadBalancer.ingress[*].ip}")
+            HOSTNAME=vwkdbmc01-$i.vwkdbmc01-svc.vw-${{ inputs.namespace }}.svc.cluster.local
+            kubectl patch deployment vwkdbmc01 -n vw-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0", "value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+            sleep 10
+            echo "Log in to nonp C02 LX TKGI"
+            if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+            then
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-f02 -a api.mkp-nonp-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-$cluster4_5
+            else 
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-lx-f02 -a api.mkp-prod-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-lx-$cluster4_5
+            fi
+            HOSTNAME=lxkdbmc02-$i.lxkdbmc02-svc.lx-${{ inputs.namespace }}.svc.cluster.local
+            kubectl patch deployment lxkdbmc02 -n lx-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0", "value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+            sleep 5
+            echo "Log in to nonp C01 LX TKGI"
+            if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+            then
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-nonp-lx-f02 -a api.mkp-nonp-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-nonp-lx-$cluster4_5
+            else 
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-prod-lx-f02 -a api.mkp-prod-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-prod-lx-$cluster4_5
+            fi
+            HOSTNAME=lxkdbmc01-$i.lxkdbmc01-svc.lx-${{ inputs.namespace }}.svc.cluster.local
+            kubectl patch deployment lxkdbmc01 -n lx-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0", "value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+            sleep 10
+            echo "Log in to nonp C02 VW TKGI"
+            if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+            then
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-f02 -a api.mkp-nonp-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-$cluster4_5
+            else 
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-vw-f02 -a api.mkp-prod-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-vw-$cluster4_5
+            fi
+            HOSTNAME=vwkdbmc02-$i.vwkdbmc02-svc.vw-${{ inputs.namespace }}.svc.cluster.local
+            kubectl patch deployment vwkdbmc02 -n vw-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0", "value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+            sleep 10
+          done
+        shell: bash
 
-      - name: Update the LX C02 stateful set with VW host alias configs
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
+
+      - name: Update the VW C02 SVC IP in all places
+        if: ${{ inputs.c02-replicasVW != '0' }}
         run: |
-          sleep 60
-          ansible-playbook skynet/host-alias-play.yaml --extra-vars "namespace=vw-${{ inputs.namespace }} statefulSet_file=$GITHUB_WORKSPACE/lx-c02-statefulset.yaml release=vwkdbmc02 replicas=${{ inputs.C02-replicasVW}}"
-          cat $GITHUB_WORKSPACE/lx-c02-statefulset.yaml
-
-      - name: Log in to nonp C01 LX TKGI again
-        if: ${{ (inputs.require_cluster_c01 == 'yes') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
-        run: |
-          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-nonp-lx-f02 -a api.mkp-nonp-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
-          kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-nonp-lx-$cluster4_5
-
-      - name: Log in to prod C01 LX TKGI again
-        if: ${{ (inputs.require_cluster_c01 == 'yes') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
-        run: |
-          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-prod-lx-f02 -a api.mkp-prod-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
-          kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-prod-lx-$cluster4_5
-
-      - name: Log in to nonp C02 LX TKGI again
-        if: ${{ (inputs.require_cluster_c02 == 'yes') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
-        run: |
-          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-f02 -a api.mkp-nonp-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
-          kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-$cluster4_5
-
-      - name: Log in to prod C02 LX TKGI again
-        if: ${{ (inputs.require_cluster_c02 == 'yes') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
-        run: |
-          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-lx-f02 -a api.mkp-prod-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
-          kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-lx-$cluster4_5
-
-      - name: Apply new stateful set config to LX C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
-        run: |
-          kubectl apply -f $GITHUB_WORKSPACE/lx-c01-statefulset.yaml -n lx-${{ inputs.namespace }} --force
-
-      - name: Apply new stateful set config to LX C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
-        run: |
-          kubectl apply -f $GITHUB_WORKSPACE/lx-c02-statefulset.yaml -n lx-${{ inputs.namespace }} --force
-
-      - name: Update the VW C01 stateful set with LX host alias configs
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
-        run: |
-          sleep 60
-          ansible-playbook skynet/host-alias-play.yaml --extra-vars "namespace=lx-${{ inputs.namespace }} statefulSet_file=$GITHUB_WORKSPACE/vw-c01-statefulset.yaml release=lxkdbmc01 replicas=${{ inputs.c01-replicasLX}}"
-
-      - name: Update the VW C02 stateful set with LX host alias configs
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
-        run: |
-          sleep 60
-          ansible-playbook skynet/host-alias-play.yaml --extra-vars "namespace=lx-${{ inputs.namespace }} statefulSet_file=$GITHUB_WORKSPACE/vw-c02-statefulset.yaml release=lxkdbmc02 replicas=${{ inputs.c02-replicasLX}}"
-
-
-      - name: Log in to nonp C01 VW TKGI again
-        if: ${{ (inputs.require_cluster_c01 == 'yes') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
-        run: |
-          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-nonp-vw-f02 -a api.mkp-nonp-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
-          kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-nonp-vw-$cluster4_5
-
-      - name: Log in to prod C01 VW TKGI
-        if: ${{ (inputs.require_cluster_c01 == 'yes') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
-        run: |
-          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-prod-vw-f02 -a api.mkp-prod-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
-          kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-prod-vw-$cluster4_5
-
-      - name: Log in to nonp C02 VW TKGI again
-        if: ${{ (inputs.require_cluster_c02 == 'yes') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
-        run: |
-          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-f02 -a api.mkp-nonp-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
-          kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-$cluster4_5
-
-      - name: Log in to prod C02 VW TKGI again
-        if: ${{ (inputs.require_cluster_c02 == 'yes') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
-        run: |
-          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-vw-f02 -a api.mkp-prod-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
-          kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-vw-$cluster4_5
-
-      - name: Apply new stateful set config to VW C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
-        run: |
-          kubectl apply -f $GITHUB_WORKSPACE/vw-c01-statefulset.yaml -n vw-${{ inputs.namespace }} --force
-
-      - name: Apply new stateful set config to VW C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
-        run: |
-          kubectl apply -f $GITHUB_WORKSPACE/vw-c02-statefulset.yaml -n vw-${{ inputs.namespace }} --force
+          sleep 10
+          echo "Log in to nonp C02 VW TKGI"
+          if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+          then
+            tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-f02 -a api.mkp-nonp-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+            kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-$cluster4_5
+          else 
+            tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-vw-f02 -a api.mkp-prod-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+            kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-vw-$cluster4_5
+          fi
+          svc_count=$(kubectl get svc -n vw-${{ inputs.namespace }} -o name | grep -v "vwkdbmc02-svc" | tr -d 'service/' | wc -l | tr -d ' ')
+          START=$(( $svc_count - 1 ))
+          REQ_NUM=$(($svc_count + ${{inputs.c01-replicasLX}}))
+          END=$(($svc_count - $REQ_NUM))
+          for i in $(eval echo "{$START..$END}")
+          do
+            SVC_IP=$(kubectl get svc -n vw-${{ inputs.namespace }} vwkdbmc02-$i -o jsonpath="{.status.loadBalancer.ingress[*].ip}")
+            HOSTNAME=vwkdbmc02-$i.vwkdbmc02-svc.vw-${{ inputs.namespace }}.svc.cluster.local
+            kubectl patch deployment vwkdbmc02 -n vw-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0", "value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+            sleep 10
+            echo "Log in to nonp C02 LX TKGI"
+            if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+            then
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-f02 -a api.mkp-nonp-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-$cluster4_5
+            else 
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-lx-f02 -a api.mkp-prod-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-lx-$cluster4_5
+            fi
+            HOSTNAME=lxkdbmc02-$i.lxkdbmc02-svc.lx-${{ inputs.namespace }}.svc.cluster.local
+            kubectl patch deployment lxkdbmc02 -n lx-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0", "value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+            sleep 10
+            echo "Log in to nonp C01 VW TKGI"
+            if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+            then
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-nonp-vw-f02 -a api.mkp-nonp-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-nonp-vw-$cluster4_5
+            else 
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-prod-vw-f02 -a api.mkp-prod-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-prod-vw-$cluster4_5
+            fi
+            HOSTNAME=vwkdbmc01-$i.vwkdbmc01-svc.vw-${{ inputs.namespace }}.svc.cluster.local
+            kubectl patch deployment vwkdbmc01 -n vw-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0", "value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+            sleep 10
+            echo "Log in to nonp C01 LX TKGI"
+            if ${{ (inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa') }}
+            then
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-nonp-lx-f02 -a api.mkp-nonp-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-nonp-lx-$cluster4_5
+            else 
+              tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-prod-lx-f02 -a api.mkp-prod-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+              kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-prod-lx-$cluster4_5
+            fi
+            HOSTNAME=lxkdbmc01-$i.lxkdbmc01-svc.lx-${{ inputs.namespace }}.svc.cluster.local
+            kubectl patch deployment lxkdbmc01 -n lx-${{ inputs.namespace }} --type=json -p='[{"op": "add", "path": "/spec/template/spec/hostAliases/0", "value": { "hostnames": [ "'${HOSTNAME}'" ], "ip": "'${SVC_IP}'"}}]'
+            sleep 10
+          done
+        shell: bash
 
       - name: Log in to nonp C01 LX TKGI to deploy PEM
-        if: ${{ (inputs.require_cluster_c01 == 'yes') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
+        if: ${{ (inputs.c01-replicasLX != '0') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
         run: |
-          sleep 60
           tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-nonp-lx-f02 -a api.mkp-nonp-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
           kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-nonp-lx-$cluster4_5
 
       - name: Log in to prod C01 LX TKGI to deploy PEM
-        if: ${{ (inputs.require_cluster_c01 == 'yes') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
+        if: ${{ (inputs.c01-replicasLX != '0') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
         run: |
-          sleep 60
           tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-prod-lx-f02 -a api.mkp-prod-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
           kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-prod-lx-$cluster4_5
 
-      - name: Log in to nonp C02 LX TKGI to deploy PEM
-        if: ${{ (inputs.require_cluster_c02 == 'yes') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
-        run: |
-          sleep 60
-          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-f02 -a api.mkp-nonp-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
-          kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-$cluster4_5
 
-      - name: Log in to prod C02 LX TKGI to deploy PEM
-        if: ${{ (inputs.require_cluster_c02 == 'yes') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
+      - name: Cleanup before the secrets copy LX C01
+        if: ${{ inputs.c01-replicasLX != '0' }}
         run: |
-          sleep 60
-          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-lx-f02 -a api.mkp-prod-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
-          kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-lx-$cluster4_5
+          rm -rf configmap/server-*
+          rm -rf configmap/chain-*
 
       - name: Get Server Secrets for LX C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+        if: ${{ inputs.c01-replicasLX != '0' }}
         run: |
-          START=1
-          END=${{ inputs.c01-replicasLX }}
+          START=$pod_running_count_c01_lx
+          END=$pod_desire_count_c01_lx
           for i in $(eval echo "{$START..$END}")
           do
-            i=$((i-1))
             kubectl get secret "lxkdbmc01-$i-${{ inputs.namespace }}" -o jsonpath='{.data.*}' -n lx-${{ inputs.namespace }} | base64 -d > server-$i.pem
             cp server-$i.pem configmap/
           done
 
       - name: write chain secret to LX C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+        if: ${{ inputs.c01-replicasLX != '0' }}
         env:
           CHAIN_PEM: ${{ secrets.CHAIN_PEM }}
         run: |
-          START=1
-          END=${{ inputs.c01-replicasLX }}
+          START=$pod_running_count_c01_lx
+          END=$pod_desire_count_c01_lx
           for i in $(eval echo "{$START..$END}")
           do
-            i=$((i-1))
             echo "$CHAIN_PEM" > configmap/chain-$i.pem
           done
 
       - name: Create the configmap for lx C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+        if: ${{ inputs.c01-replicasLX != '0' }}
         run: |
           kubectl create configmap mongo-server-pem --from-file=configmap -n lx-${{ inputs.namespace }} || true
 
-      - name: Get the sts json output C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+      - name: Patching deployment in LX C01
+        if: ${{ inputs.c01-replicasLX != '0' }}
         run: |
-          kubectl get sts -n ${{ inputs.datacenter }}-${{ inputs.namespace }} -o json 
+          kubectl patch deployment lxkdbmc01 -n lx-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/command/0", "value":"/mnt/scripts/run.sh"}]'
+          kubectl patch deployment lxkdbmc01 -n lx-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"repo.primetherapeutics.com:17443/mongodb:0.3"}]'
+          kubectl patch deployment lxkdbmc01 -n lx-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/containers/0/volumeMounts", "value": [{"mountPath": "/mnt/certs","name": "cache-volume"},{"mountPath": "/mnt/scripts","name": "mongo-server-pem"},{"mountPath": "/mms-config","name": "lxkdbmc01-config"},{"mountPath": "/data","name": "lxkdbmc01"},{"mountPath": "/etc/ldap","name": "ldap-conf"}]}]'
+          kubectl patch deployment lxkdbmc01 -n lx-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/volumes", "value": [{"emptyDir": {},"name": "cache-volume"},{"configMap": {"defaultMode": 0777,"name": "mongo-server-pem"},"name": "mongo-server-pem"},{"configMap": {"defaultMode": 420,"items": [{"key": "local.config","path": "local.config"}],"name": "lxkdbmc01-config"},"name": "lxkdbmc01-config"},{"configMap": {"defaultMode": 420,"items": [{"key": "ldap.conf","path": "ldap.conf"}],"name": "ldap-conf"},"name": "ldap-conf"},{"persistentVolumeClaim": {"claimName": "lxkdbmc01-pvc"},"name": "lxkdbmc01"}]}]'
 
-      - name: Patching statefulset in LX C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+      - name: Log in to nonp C02 LX TKGI to deploy PEM
+        if: ${{ (inputs.c02-replicasLX != '0') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
         run: |
-          kubectl patch statefulset lxkdbmc01 -n lx-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/command/0", "value":"/mnt/scripts/run.sh"}]'
-          kubectl patch statefulset lxkdbmc01 -n lx-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"repo.primetherapeutics.com:17443/mongodb:0.3"}]'
-          kubectl patch statefulset lxkdbmc01 -n lx-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/containers/0/volumeMounts", "value": [{"mountPath": "/mnt/certs","name": "cache-volume"},{"mountPath": "/mnt/scripts","name": "mongo-server-pem"},{"mountPath": "/mms-config","name": "lxkdbm-config"},{"mountPath": "/data","name": "lxkdbm"},{"mountPath": "/etc/ldap","name": "ldap-conf"}]}]'
-          kubectl patch statefulset lxkdbmc01 -n lx-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/volumes", "value": [{"emptyDir": {},"name": "cache-volume"},{"configMap": {"defaultMode": 0777,"name": "mongo-server-pem"},"name": "mongo-server-pem"},{"configMap": {"defaultMode": 420,"items": [{"key": "local.config","path": "local.config"}],"name": "lxkdbm-config"},"name": "lxkdbm-config"},{"configMap": {"defaultMode": 420,"items": [{"key": "ldap.conf","path": "ldap.conf"}],"name": "ldap-conf"},"name": "ldap-conf"}]}]'
+          sleep 30
+          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-f02 -a api.mkp-nonp-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+          kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-lx-$cluster4_5
 
-      - name: Delete pods in LX C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+      - name: Log in to prod C02 LX TKGI to deploy PEM
+        if: ${{ (inputs.c02-replicasLX != '0') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
         run: |
-          kubectl delete pod/lxkdbmc01-0 -n lx-${{ inputs.namespace }}
+          sleep 30
+          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-lx-f02 -a api.mkp-prod-lx-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+          kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-lx-$cluster4_5
+
+      - name: Cleanup before the secrets copy LX C02
+        if: ${{ inputs.c02-replicasLX != '0' }}
+        run: |
+          rm -rf configmap/server-*
+          rm -rf configmap/chain-*
 
       
       - name: Get Server Secrets for LX C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
+        if: ${{ inputs.c02-replicasLX != '0' }}
         run: |
-          START=1
-          END=${{ inputs.c02-replicasLX }}
+          START=$pod_running_count_c02_lx
+          END=$pod_desire_count_c02_lx
           for i in $(eval echo "{$START..$END}")
           do
-            i=$((i-1))
             kubectl get secret "lxkdbmc02-$i-${{ inputs.namespace }}" -o jsonpath='{.data.*}' -n lx-${{ inputs.namespace }} | base64 -d > server-$i.pem
             cp server-$i.pem configmap/
           done
 
       - name: write chain secret to LX C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
+        if: ${{ inputs.c02-replicasLX != '0' }}
         env:
           CHAIN_PEM: ${{ secrets.CHAIN_PEM }}
         run: |
-          START=1
-          END=${{ inputs.c02-replicasLX }}
+          START=$pod_running_count_c02_lx
+          END=$pod_desire_count_c02_lx
           for i in $(eval echo "{$START..$END}")
           do
-            i=$((i-1))
             echo "$CHAIN_PEM" > configmap/chain-$i.pem
           done
 
       - name: Create the configmap for lx C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
+        if: ${{ inputs.c02-replicasLX != '0' }}
         run: |
           kubectl create configmap mongo-server-pem --from-file=configmap -n lx-${{ inputs.namespace }} || true
 
-      - name: Get the sts json output C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
+      - name: Patching deployment in LX C02
+        if: ${{ inputs.c02-replicasLX != '0' }}
         run: |
-          kubectl get sts -n ${{ inputs.datacenter }}-${{ inputs.namespace }} -o json 
-
-      - name: Patching statefulset in LX C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
-        run: |
-          kubectl patch statefulset lxkdbmc02 -n lx-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/command/0", "value":"/mnt/scripts/run.sh"}]'
-          kubectl patch statefulset lxkdbmc02 -n lx-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"repo.primetherapeutics.com:17443/mongodb:0.3"}]'
-          kubectl patch statefulset lxkdbmc02 -n lx-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/containers/0/volumeMounts", "value": [{"mountPath": "/mnt/certs","name": "cache-volume"},{"mountPath": "/mnt/scripts","name": "mongo-server-pem"},{"mountPath": "/mms-config","name": "lxkdbm-config"},{"mountPath": "/data","name": "lxkdbm"},{"mountPath": "/etc/ldap","name": "ldap-conf"}]}]'
-          kubectl patch statefulset lxkdbmc02 -n lx-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/volumes", "value": [{"emptyDir": {},"name": "cache-volume"},{"configMap": {"defaultMode": 0777,"name": "mongo-server-pem"},"name": "mongo-server-pem"},{"configMap": {"defaultMode": 420,"items": [{"key": "local.config","path": "local.config"}],"name": "lxkdbm-config"},"name": "lxkdbm-config"},{"configMap": {"defaultMode": 420,"items": [{"key": "ldap.conf","path": "ldap.conf"}],"name": "ldap-conf"},"name": "ldap-conf"}]}]'
-
-      - name: Delete pods in LX C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
-        run: |
-          kubectl delete pod/lxkdbmc02-0 -n lx-${{ inputs.namespace }}
+          kubectl patch deployment lxkdbmc02 -n lx-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/command/0", "value":"/mnt/scripts/run.sh"}]'
+          kubectl patch deployment lxkdbmc02 -n lx-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"repo.primetherapeutics.com:17443/mongodb:0.3"}]'
+          kubectl patch deployment lxkdbmc02 -n lx-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/containers/0/volumeMounts", "value": [{"mountPath": "/mnt/certs","name": "cache-volume"},{"mountPath": "/mnt/scripts","name": "mongo-server-pem"},{"mountPath": "/mms-config","name": "lxkdbmc02-config"},{"mountPath": "/data","name": "lxkdbmc02"},{"mountPath": "/etc/ldap","name": "ldap-conf"}]}]'
+          kubectl patch deployment lxkdbmc02 -n lx-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/volumes", "value": [{"emptyDir": {},"name": "cache-volume"},{"configMap": {"defaultMode": 0777,"name": "mongo-server-pem"},"name": "mongo-server-pem"},{"configMap": {"defaultMode": 420,"items": [{"key": "local.config","path": "local.config"}],"name": "lxkdbmc02-config"},"name": "lxkdbmc02-config"},{"configMap": {"defaultMode": 420,"items": [{"key": "ldap.conf","path": "ldap.conf"}],"name": "ldap-conf"},"name": "ldap-conf"},{"persistentVolumeClaim": {"claimName": "lxkdbmc02-pvc"},"name": "lxkdbmc02"}]}]'
 
       - name: Log in to nonp C01 VW TKGI to deploy PEM
-        if: ${{ (inputs.require_cluster_c01 == 'yes') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
+        if: ${{ (inputs.c01-replicasVW != '0') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
         run: |
-          sleep 60
+          sleep 30
           tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-nonp-vw-f02 -a api.mkp-nonp-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
           kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-nonp-vw-$cluster4_5
 
       - name: Log in to prod C01 VW TKGI to deploy PEM
-        if: ${{ (inputs.require_cluster_c01 == 'yes') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
+        if: ${{ (inputs.c01-replicasVW != '0') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
         run: |
-          sleep 60
+          sleep 30
           tkgi get-kubeconfig mongodb-${{ inputs.env }}-c01-mkp-prod-vw-f02 -a api.mkp-prod-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
           kubectl config use-context mongodb-${{ inputs.env }}-c01-mkp-prod-vw-$cluster4_5
 
-      - name: Log in to nonp C02 VW TKGI to deploy PEM
-        if: ${{ (inputs.require_cluster_c02 == 'yes') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
+      - name: Cleanup before the secrets copy VW C01
+        if: ${{ inputs.c01-replicasVW != '0' }}
         run: |
-          sleep 60
-          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-f02 -a api.mkp-nonp-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
-          kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-$cluster4_5
-
-      - name: Log in to prod C02 VW TKGI to deploy PEM
-        if: ${{ (inputs.require_cluster_c02 == 'yes') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
-        run: |
-          sleep 60
-          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-vw-f02 -a api.mkp-prod-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
-          kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-vw-$cluster4_5
+          rm -rf configmap/server-*
+          rm -rf configmap/chain-*
 
       - name: Get Server Secrets for VW C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+        if: ${{ inputs.c01-replicasVW != '0' }}
         run: |
-          START=1
-          END=${{ inputs.c01-replicasVW }}
+          START=$pod_running_count_c01_vw
+          END=$pod_desire_count_c01_vw
           for i in $(eval echo "{$START..$END}")
           do
-            i=$((i-1))
             kubectl get secret "vwkdbmc01-$i-${{ inputs.namespace }}" -o jsonpath='{.data.*}' -n vw-${{ inputs.namespace }} | base64 -d > server-$i.pem
             cp server-$i.pem configmap/
           done
 
       - name: write chain secret to VW C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+        if: ${{ inputs.c01-replicasVW != '0' }}
         env:
           CHAIN_PEM: ${{ secrets.CHAIN_PEM }}
         run: |
-          START=1
-          END=${{ inputs.c01-replicasVW }}
+          START=$pod_running_count_c01_vw
+          END=$pod_desire_count_c01_vw
           for i in $(eval echo "{$START..$END}")
           do
-            i=$((i-1))
             echo "$CHAIN_PEM" > configmap/chain-$i.pem
           done
 
       - name: Create the configmap for vw C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+        if: ${{ inputs.c01-replicasVW != '0' }}
         run: |
-          kubectl create configmap mongo-server-pem --from-file=configmap -n vw-${{ inputs.namespace }} || true       
+          kubectl create configmap mongo-server-pem --from-file=configmap -n vw-${{ inputs.namespace }} || true
 
-      - name: Get the sts json output C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+      - name: Patching deployment in VW C01
+        if: ${{ inputs.c01-replicasVW != '0' }}
         run: |
-          kubectl get sts -n ${{ inputs.datacenter }}-${{ inputs.namespace }} -o json 
+          kubectl patch deployment vwkdbmc01 -n vw-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/command/0", "value":"/mnt/scripts/run.sh"}]'
+          kubectl patch deployment vwkdbmc01 -n vw-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"repo.primetherapeutics.com:17443/mongodb:0.3"}]'
+          kubectl patch deployment vwkdbmc01 -n vw-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/containers/0/volumeMounts", "value": [{"mountPath": "/mnt/certs","name": "cache-volume"},{"mountPath": "/mnt/scripts","name": "mongo-server-pem"},{"mountPath": "/mms-config","name": "vwkdbmc01-config"},{"mountPath": "/data","name": "vwkdbmc01"},{"mountPath": "/etc/ldap","name": "ldap-conf"}]}]'
+          kubectl patch deployment vwkdbmc01 -n vw-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/volumes", "value": [{"emptyDir": {},"name": "cache-volume"},{"configMap": {"defaultMode": 0777,"name": "mongo-server-pem"},"name": "mongo-server-pem"},{"configMap": {"defaultMode": 420,"items": [{"key": "local.config","path": "local.config"}],"name": "vwkdbmc01-config"},"name": "vwkdbmc01-config"},{"configMap": {"defaultMode": 420,"items": [{"key": "ldap.conf","path": "ldap.conf"}],"name": "ldap-conf"},"name": "ldap-conf"},{"persistentVolumeClaim": {"claimName": "vwkdbmc01-pvc"},"name": "vwkdbmc01"}]}]'       
 
-      - name: Patching statefulset in VW C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+      - name: Log in to nonp C02 VW TKGI to deploy PEM
+        if: ${{ (inputs.c02-replicasVW != '0') && ((inputs.env == 'dev') || (inputs.env == 'test') || (inputs.env == 'qa')) }}
         run: |
-          kubectl patch statefulset vwkdbmc01 -n vw-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/command/0", "value":"/mnt/scripts/run.sh"}]'
-          kubectl patch statefulset vwkdbmc01 -n vw-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"repo.primetherapeutics.com:17443/mongodb:0.3"}]'
-          kubectl patch statefulset vwkdbmc01 -n vw-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/containers/0/volumeMounts", "value": [{"mountPath": "/mnt/certs","name": "cache-volume"},{"mountPath": "/mnt/scripts","name": "mongo-server-pem"},{"mountPath": "/mms-config","name": "vwkdbm-config"},{"mountPath": "/data","name": "vwkdbm"},{"mountPath": "/etc/ldap","name": "ldap-conf"}]}]'
-          kubectl patch statefulset vwkdbmc01 -n vw-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/volumes", "value": [{"emptyDir": {},"name": "cache-volume"},{"configMap": {"defaultMode": 0777,"name": "mongo-server-pem"},"name": "mongo-server-pem"},{"configMap": {"defaultMode": 420,"items": [{"key": "local.config","path": "local.config"}],"name": "vwkdbm-config"},"name": "vwkdbm-config"},{"configMap": {"defaultMode": 420,"items": [{"key": "ldap.conf","path": "ldap.conf"}],"name": "ldap-conf"},"name": "ldap-conf"}]}]'
+          sleep 30
+          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-f02 -a api.mkp-nonp-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+          kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-nonp-vw-$cluster4_5
 
-      - name: Delete pods in VW C01
-        if: ${{ inputs.require_cluster_c01 == 'yes' }}
+      - name: Log in to prod C02 VW TKGI to deploy PEM
+        if: ${{ (inputs.c02-replicasVW != '0') && ((inputs.env == 'stage') || (inputs.env == 'prod')) }}
         run: |
-          kubectl delete pod/vwkdbmc01-0 -n vw-${{ inputs.namespace }}
+          sleep 30
+          tkgi get-kubeconfig mongodb-${{ inputs.env }}-c02-mkp-prod-vw-f02 -a api.mkp-prod-vw-f02.primepcf.com -u $TKGI_USR -p $TKGI_PSW -k
+          kubectl config use-context mongodb-${{ inputs.env }}-c02-mkp-prod-vw-$cluster4_5
 
+      - name: Cleanup before the secrets copy VW C02
+        if: ${{ inputs.c02-replicasVW != '0' }}
+        run: |
+          rm -rf configmap/server-*
+          rm -rf configmap/chain-*
       
-       - name: Get Server Secrets for VW C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
+      - name: Get Server Secrets for VW C02
+        if: ${{ inputs.c02-replicasVW != '0' }}
         run: |
-          START=1
-          END=${{ inputs.c02-replicasVW }}
+          START=$pod_running_count_c02_vw
+          END=$pod_desire_count_c02_vw
           for i in $(eval echo "{$START..$END}")
           do
-            i=$((i-1))
             kubectl get secret "vwkdbmc02-$i-${{ inputs.namespace }}" -o jsonpath='{.data.*}' -n vw-${{ inputs.namespace }} | base64 -d > server-$i.pem
             cp server-$i.pem configmap/
           done
 
       - name: write chain secret to VW C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
+        if: ${{ inputs.c02-replicasVW != '0' }}
         env:
           CHAIN_PEM: ${{ secrets.CHAIN_PEM }}
         run: |
-          START=1
-          END=${{ inputs.c02-replicasVW }}
+          START=$pod_running_count_c02_vw
+          END=$pod_desire_count_c02_vw
           for i in $(eval echo "{$START..$END}")
           do
-            i=$((i-1))
-            echo "$CHAIN_PEM" > configmap/chain-$i.pem
+             echo "$CHAIN_PEM" > configmap/chain-$i.pem
           done
 
       - name: Create the configmap for vw C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
+        if: ${{ inputs.c02-replicasVW != '0' }}
         run: |
-          kubectl create configmap mongo-server-pem --from-file=configmap -n vw-${{ inputs.namespace }} || true       
+          kubectl create configmap mongo-server-pem --from-file=configmap -n vw-${{ inputs.namespace }} || true
 
-      - name: Get the sts json output C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
+      - name: Patching deployment in VW C02
+        if: ${{ inputs.c02-replicasVW != '0' }}
         run: |
-          kubectl get sts -n ${{ inputs.datacenter }}-${{ inputs.namespace }} -o json 
-
-      - name: Patching statefulset in VW C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
-        run: |
-          kubectl patch statefulset vwkdbmc02 -n vw-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/command/0", "value":"/mnt/scripts/run.sh"}]'
-          kubectl patch statefulset vwkdbmc02 -n vw-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"repo.primetherapeutics.com:17443/mongodb:0.3"}]'
-          kubectl patch statefulset vwkdbmc02 -n vw-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/containers/0/volumeMounts", "value": [{"mountPath": "/mnt/certs","name": "cache-volume"},{"mountPath": "/mnt/scripts","name": "mongo-server-pem"},{"mountPath": "/mms-config","name": "vwkdbm-config"},{"mountPath": "/data","name": "vwkdbm"},{"mountPath": "/etc/ldap","name": "ldap-conf"}]}]'
-          kubectl patch statefulset vwkdbmc02 -n vw-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/volumes", "value": [{"emptyDir": {},"name": "cache-volume"},{"configMap": {"defaultMode": 0777,"name": "mongo-server-pem"},"name": "mongo-server-pem"},{"configMap": {"defaultMode": 420,"items": [{"key": "local.config","path": "local.config"}],"name": "vwkdbm-config"},"name": "vwkdbm-config"},{"configMap": {"defaultMode": 420,"items": [{"key": "ldap.conf","path": "ldap.conf"}],"name": "ldap-conf"},"name": "ldap-conf"}]}]'
-
-      - name: Delete pods in VW C02
-        if: ${{ inputs.require_cluster_c02 == 'yes' }}
-        run: |
-          kubectl delete pod/vwkdbmc02-0 -n vw-${{ inputs.namespace }}
+          kubectl patch deployment vwkdbmc02 -n vw-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/command/0", "value":"/mnt/scripts/run.sh"}]'
+          kubectl patch deployment vwkdbmc02 -n vw-${{ inputs.namespace }} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"repo.primetherapeutics.com:17443/mongodb:0.3"}]'
+          kubectl patch deployment vwkdbmc02 -n vw-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/containers/0/volumeMounts", "value": [{"mountPath": "/mnt/certs","name": "cache-volume"},{"mountPath": "/mnt/scripts","name": "mongo-server-pem"},{"mountPath": "/mms-config","name": "vwkdbmc02-config"},{"mountPath": "/data","name": "vwkdbmc02"},{"mountPath": "/etc/ldap","name": "ldap-conf"}]}]'
+          kubectl patch deployment vwkdbmc02 -n vw-${{ inputs.namespace }} --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/volumes", "value": [{"emptyDir": {},"name": "cache-volume"},{"configMap": {"defaultMode": 0777,"name": "mongo-server-pem"},"name": "mongo-server-pem"},{"configMap": {"defaultMode": 420,"items": [{"key": "local.config","path": "local.config"}],"name": "vwkdbmc02-config"},"name": "vwkdbmc02-config"},{"configMap": {"defaultMode": 420,"items": [{"key": "ldap.conf","path": "ldap.conf"}],"name": "ldap-conf"},"name": "ldap-conf"},{"persistentVolumeClaim": {"claimName": "vwkdbmc02-pvc"},"name": "vwkdbmc02"}]}]'       
 
       - name: Always run the script
         run: |
