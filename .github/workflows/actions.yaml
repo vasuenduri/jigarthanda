@@ -2,7 +2,7 @@ name: dns_records
 on:
   workflow_dispatch:
     inputs:
-      C01-replicasLX:
+      c01-replicasLX:
         type: choice
         description: 'cluster C01 LX Replicas count'
         options:
@@ -33,14 +33,32 @@ jobs:
     steps:
       - name: Get MongoDB Dump
         run: |
-          declare -A clusters
-          clusters[c01]=${{ inputs.C01-replicasLX }}
-          clusters[c02]=${{ inputs.C02-replicasLX }}
-          for i in "${clusters[@]}"
+          START=0
+          REQ_NUM=inputs.c01-replicasLX
+          END=$(($svc_count + $REQ_NUM - 1))  
+          for i in $(eval echo "{$START..$END}")
           do
-              echo "c01 count: ${clusters[c01]}"
-              echo "c02 count: ${clusters[c02]}"
+          cat >> $GITHUB_WORKSPACE/replica-set-expose.yaml << EOF
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: lxkdbmc01-$i
+            namespace: lx
+          spec:
+            externalTrafficPolicy: Cluster
+            ports:
+            - port: 27017
+              protocol: TCP
+              targetPort: 27017
+            selector:
+              statefulset.kubernetes.io/pod-name: lxkdbmc01-$i
+            sessionAffinity: None
+            type: LoadBalancer
+          EOF
           done
+          echo "contents"
+          cat $GITHUB_WORKSPACE/replica-set-expose.yaml
           
           
  
