@@ -59,6 +59,7 @@ jobs:
           done
           echo "contents"
           cat $GITHUB_WORKSPACE/replica-set-expose.yaml
+        shell: bash
           
           
  
