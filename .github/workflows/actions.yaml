@@ -25,12 +25,13 @@ jobs:
           for i in $(eval echo "{$START..$prevCount}")
           do
             SVC_IP=10.96.3.$i
-            HOSTNAME=lxkdbmc02-$i.lxkdbmc02-svc.cluster.local
-            svc_ip_lxbdmc02+=( [$HOSTNAME]=$SVC_IP)
+            svc_ip_lxbdmc02+=( [$i]=$SVC_IP)
           done
           if [ ${#svc_ip_lxbdmc02[@]} -ne 0 ]; then
             for key in ${!svc_ip_lxbdmc02[@]}; do
-              echo ${key} ${svc_ip_lxbdmc02[${key}]}
+              HOSTNAME=lxkdbmc02-${key}.lxkdbmc02-svc.cluster.local
+              echo $HOSTNAME
+              echo ${HOSTNAME} ${svc_ip_lxbdmc02[${key}]}
             done
           else
             echo "All are empty"
