@@ -16,20 +16,7 @@ env:
 jobs:
   dns_records:
     runs-on: ubuntu-latest
-    steps:
-      - name: declare lxkdbmc01
-        run: |
-          declare -A svc_ip_lxbdmc01
-          START=3
-          prevCount=1
-          for i in $(eval echo "{$START..$prevCount}")
-          do
-            SVC_IP=10.96.1.$i
-            HOSTNAME=lxkdbmc01-$i.lxkdbmc01-svc.cluster.local
-            svc_ip_lxbdmc01+=( [$HOSTNAME]=$SVC_IP)
-          done
-          echo "svc_ip_lxbdmc01=${svc_ip_lxbdmc01}" >> $GITHUB_ENV
-          
+    steps:    
       - name: declare lxkdbmc02
         run: |
           declare -A svc_ip_lxbdmc02
@@ -41,9 +28,9 @@ jobs:
             HOSTNAME=lxkdbmc02-$i.lxkdbmc02-svc.cluster.local
             svc_ip_lxbdmc02+=( [$HOSTNAME]=$SVC_IP)
           done
-          if [ ${#svc_ip_lxbdmc01[@]} -ne 0 ]; then
-            for key in ${!svc_ip_lxbdmc01[@]}; do
-              echo ${key} ${svc_ip_lxbdmc01[${key}]}
+          if [ ${#svc_ip_lxbdmc02[@]} -ne 0 ]; then
+            for key in ${!svc_ip_lxbdmc02[@]}; do
+              echo ${key} ${svc_ip_lxbdmc02[${key}]}
             done
           else
             echo "All are empty"
