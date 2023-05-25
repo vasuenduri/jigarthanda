@@ -33,7 +33,19 @@ jobs:
     steps:
       - name: Get MongoDB Dump
         run: |
-          declare -A arr
+          declare -A svc_ip_lxbdmc01
+          START=3
+          prevCount=1
+          for i in $(eval echo "{$START..$prevCount}")
+          do
+            SVC_IP=10.96.1.$i
+            HOSTNAME=lxkdbmc01-$i.lxkdbmc01-svc.cluster.local
+            svc_ip_lxbdmc01+=( [$HOSTNAME]=$SVC_IP)
+          done
+
+          for key in ${!svc_ip_lxbdmc01[@]}; do
+            echo ${key} ${svc_ip_lxbdmc01[${key}]}
+          done
         shell: bash
           
           
