@@ -41,18 +41,9 @@ jobs:
             HOSTNAME=lxkdbmc02-$i.lxkdbmc02-svc.cluster.local
             svc_ip_lxbdmc02+=( [$HOSTNAME]=$SVC_IP)
           done
-          echo "svc_ip_lxbdmc02=${svc_ip_lxbdmc02}" >> $GITHUB_ENV
-          
-      - name: declare lxkdbmc03
-        run: |
-          declare -A svc_ip_lxbdmc03
-          echo "svc_ip_lxbdmc03=${svc_ip_lxbdmc03}" >> $GITHUB_ENV
-          
-      - name: get arrays details
-        run: |
-          if [ ${#${{ env.svc_ip_lxbdmc01}}[@]} -ne 0 ]; then
-            for key in ${!${{ env.svc_ip_lxbdmc01}}[@]}; do
-              echo ${key} ${${{ env.svc_ip_lxbdmc01}}[${key}]}
+          if [ ${#svc_ip_lxbdmc01[@]} -ne 0 ]; then
+            for key in ${!svc_ip_lxbdmc01[@]}; do
+              echo ${key} ${svc_ip_lxbdmc01[${key}]}
             done
           else
             echo "All are empty"
