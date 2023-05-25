@@ -41,11 +41,16 @@ jobs:
             SVC_IP=10.96.1.$i
             HOSTNAME=lxkdbmc01-$i.lxkdbmc01-svc.cluster.local
             svc_ip_lxbdmc01+=( [$HOSTNAME]=$SVC_IP)
-          done
+          done  
 
           for key in ${!svc_ip_lxbdmc01[@]}; do
             echo ${key} ${svc_ip_lxbdmc01[${key}]}
           done
+          if [ ${#svc_ip_lxbdmc01[@]} -eq 0 ]; then
+            echo "No errors, hooray"
+          else
+            echo "Oops, something went wrong..."
+          fi
         shell: bash
           
           
