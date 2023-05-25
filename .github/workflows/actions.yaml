@@ -50,17 +50,9 @@ jobs:
           
       - name: get arrays details
         run: |
-          if [ ${#svc_ip_lxbdmc01[@]} -ne 0 ]; then
-            for key in ${!svc_ip_lxbdmc01[@]}; do
-              echo ${key} ${svc_ip_lxbdmc01[${key}]}
-            done
-          elif [ ${#svc_ip_lxbdmc02[@]} -ne 0 ]; then
-            for key in ${!svc_ip_lxbdmc02[@]}; do
-              echo ${key} ${svc_ip_lxbdmc02[${key}]}
-            done
-          elif [ ${#svc_ip_lxbdmc03[@]} -ne 0 ]; then
-            for key in ${!svc_ip_lxbdmc03[@]}; do
-              echo ${key} ${svc_ip_lxbdmc03[${key}]}
+          if [ ${#${{ env.svc_ip_lxbdmc01}}[@]} -ne 0 ]; then
+            for key in ${!${{ env.svc_ip_lxbdmc01}}[@]}; do
+              echo ${key} ${${{ env.svc_ip_lxbdmc01}}[${key}]}
             done
           else
             echo "All are empty"
