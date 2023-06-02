@@ -1,32 +1,23 @@
-skynet-mongodb
-===========
+# RabbitMQ Management
 
-# Introduction
+## Overview
+Rabbitmq-management directory contains actions workflow and bash script to purge the queues in rabbitmq cluster
 
-This repo contains workflows i.e a configurable automated process that will run one or more mongoDB jobs. Check the below table to find the list of workflows and action items related to it.
+* [choco_automation.ps1](choco_automation.ps1) and [choco_automation.bat](choco_automation.bat) install and configure Chocolatey for Business.
+* set_choco_permissions.ps1 and set_choco_permissions.bat correctly set the permissions on the C:\ProgramData\Chocolatey folder, subfolders, and files
 
+## Execution Flows - choco_automation
+1. Add _Nexus_ repo as a source for Chocolatey
+2. Installs the Chocolatey License as well as a few other Chocolatey packages
+3. Installs the chocolatey extension package. There may be errors that cause this to fail, try to install it with the _--force_ switch
+4. Installs the Chocolatey Agent service that will elevate the Choco command for the user
+5. Installs the Chocolatey GUI
 
-
-# Workflows Table
-
-| Workflow Name | Action | Description Link |
-| ------------- | ------------- | --------  |
-| Skynet-Docker-image-build-push   | Pushing the docker images to repo  | [Skynet-Docker-image-build-push](https://www.google.com) | 
-| Skynet-MongoDb-Adhoc-commands-execution | MongoDB commands  | [Skynet-MongoDb-Adhoc-commands-execution](https://www.google.com) |
-| Skynet-MongoDb-Delete-Namespace | Action to delete tanzu kubernetes namespace  | [Skynet-MongoDb-Delete-Namespace](https://www.google.com) |
-| Skynet-MongoDb-Deploy-Apikey-Secret | MongoDB Api keys deployment  | [Skynet-MongoDb-Deploy-Apikey-Secret](https://www.google.com) |
-| Skynet-MongoDb-Deploy-Pvc-storage-update | PersistentVolumeClaim storage update  | [Skynet-MongoDb-Deploy-Pvc-storage-update](https://www.google.com) |
-| Skynet-MongoDb-Deploy-helm-pem | MongoDB helm deployment  | [Skynet-MongoDb-Deploy-helm-pem](https://www.google.com) |
-| Skynet-MongoDb-Deploy-pem-secrets | Action to deploy the secrets into k8s cluster  | [Skynet-MongoDb-Deploy-pem-secrets](https://www.google.com) |
-| Skynet-MongoDb-Dump-Multiple-Collections | Action to take dump of multiple collections  | [Skynet-MongoDb-Dump-Multiple-Collections](https://www.google.com) |
-| Skynet-MongoDb-Ops-Manager-Automation | MongoDB Ops Manager  | [Skynet-MongoDb-Ops-Manager-Automation](https://www.google.com) |
-| Skynet-MongoDb-Restore-Collection | Restore the specified collection into cluster | [Skynet-MongoDb-Restore-Collection](https://www.google.com) |
-| Skynet-MongoDb-Restore-Multiple-collections | Restore the multiple collections into cluster  | [Skynet-MongoDb-Restore-Multiple-collections](https://www.google.com) |
-| Skynet-MongoDb-Snapshot-restore | MongoDB Snapshot restore  | [Skynet-MongoDb-Snapshot-restore](https://www.google.com) |
-| Skynet-MongoDb-Sts-pvc-delete | Action to delete PersistentVolumeClaim  | [Skynet-MongoDb-Sts-pvc-delete](https://www.google.com) |
-| Skynet-MongoDb-create-namespace | Action to create tanzu kubernetes namespace  | [Skynet-MongoDb-create-namespace](https://www.google.com) |
-| Skynet-MongoDb-Agent-version-update | MongoDB agents version upgrade  | [Skynet-MongoDb-Agent-version-update](https://www.google.com) |
-
-
-
-
+## Additional Notes
+- The user can use the three choco commands "install, upgrade, uninstall"
+- Chocolatey Agent service will only be used when the use of the choco command is not elevated.
+- Moreover the script:
+  - Stops warnings regarding non-elevated installs
+  - Keeps users from uninstalling Chocolatey applications that they didn't install
+  - Forces chocolatey to use the Chocolatey Agent "in the background" when running choco commands
+  - Removes the original source (i.e. the community repo), otherwise the user will get 503 errors when running choco install commands
