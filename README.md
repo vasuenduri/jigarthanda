@@ -3,7 +3,14 @@
 ## Overview
 Rabbitmq-management directory contains actions workflow and bash script to purge the queues in rabbitmq cluster
 
-* [choco_automation.ps1](choco_automation.ps1) and [choco_automation.bat](choco_automation.bat) install and configure Chocolatey for Business.
+## Prerequisite
+
+* Actions workflow needs to be placed in the .github/workflows directory.
+* The following set of secrets should be available for the successful run of the job.
+```
+CF_USERNAME: ${{ secrets.CF_NONP_USR }} 
+CF_PASSWORD: ${{ secrets.CF_NONP_PSW }}
+```
 * set_choco_permissions.ps1 and set_choco_permissions.bat correctly set the permissions on the C:\ProgramData\Chocolatey folder, subfolders, and files
 
 ## Execution Flows - choco_automation
