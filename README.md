@@ -1,4 +1,4 @@
-![Example Badge](https://github.com/Lord-of-the-Repos/ninjas-reusable-workflows-resources/blob/ninjas-readme-best-practices/main/example_badge.svg)
+![MongoDB Workflows](https://github.com/vasuenduri/jigarthanda/blob/master/mongodb-ar21.svg)
 # Project Name
 > Outline a brief description of your project.
 > Live demo [_here_](https://www.example.com). <!-- If you have the project hosted somewhere, include the link here. -->
