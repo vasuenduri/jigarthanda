@@ -47,7 +47,16 @@ Workflows can be triggered using the Actions tab on GitHub, GitHub CLI, or the R
 
 - On GitHub.com, navigate to the main page of the repository.
 - Under your repository name, click  Actions.
-- ![Actions](https://docs.github.com/assets/cb-21779/mw-1440/images/help/repository/actions-tab.webp?raw=true)
+  ![Actions](https://docs.github.com/assets/cb-21779/mw-1440/images/help/repository/actions-tab.webp?raw=true)
+- In the left sidebar, click the name of the workflow you want to run.
+  ![Actions](https://docs.github.com/assets/cb-60479/mw-1440/images/help/repository/actions-select-workflow-2022.webp?raw=true)
+- Above the list of workflow runs, click the Run workflow button.
+  ![Actions](https://docs.github.com/assets/cb-52943/mw-1440/images/help/actions/actions-workflow-dispatch.webp?raw=true)
+- Select the Branch dropdown menu and click a branch to run the workflow on.
+- If the workflow requires input, fill in the fields.
+- Click Run workflow.
+
+The following link provide more info on other methods to run the github workflows [manually-running-a-workflow](https://docs.github.com/en/actions/using-workflows/manually-running-a-workflow)
 
 ## Acknowledgements
 Give credit here.
