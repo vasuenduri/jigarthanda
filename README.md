@@ -65,15 +65,8 @@ Workflows can be triggered using the Actions tab on GitHub, GitHub CLI, or the R
 The following link provide more info on other methods to run the github workflows [manually-running-a-workflow](https://docs.github.com/en/actions/using-workflows/manually-running-a-workflow)
 
 ## Acknowledgements
-Give credit here.
-- This project was inspired by...
-- This project was based on [this tutorial](https://www.example.com).
-- Many thanks to...
+- Github Actions tutorial [Intro](https://docs.github.com/en/actions).
 
 
 ## Contact
 Created by [Author](https://github.com/PTBXXXXX_PTI)
-
-<!-- You don't have to include all sections - just the one's relevant to your project -->
-
-<!-- This README is modified from ritaly's example: https://github.com/ritaly/README-cheatsheet -->
