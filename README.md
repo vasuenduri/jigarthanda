@@ -1,30 +1,51 @@
-# RabbitMQ Management
+![Example Badge](https://github.com/Lord-of-the-Repos/ninjas-reusable-workflows-resources/blob/ninjas-readme-best-practices/main/example_badge.svg)
+# Project Name
+> Outline a brief description of your project.
+> Live demo [_here_](https://www.example.com). <!-- If you have the project hosted somewhere, include the link here. -->
 
-## Overview
-Rabbitmq-management directory contains actions workflow and bash script to purge the queues in rabbitmq cluster
+## Table of Contents
+* [General Info](#general-information)
+* [Technologies Used](#technologies-used)
+* [Setup](#setup)
+* [Usage](#usage)
+* [Acknowledgements](#acknowledgements)
+* [Contact](#contact)
 
-## Prerequisite
+## General Information
+- Provide general information about your project here.
+- What problem does it (intend to) solve?
+- What is the purpose of your project?
+- Why did you undertake it?
+<!-- You don't have to answer all the questions - just the ones relevant to your project. -->
 
-* Actions workflow needs to be placed in the .github/workflows directory.
-* The following set of secrets should be available for the successful run of the job.
-  ```
-  CF_USERNAME: ${{ secrets.CF_NONP_USR }} 
-  CF_PASSWORD: ${{ secrets.CF_NONP_PSW }}
-  ```
-* Provide the values to the following parameters which are required for a successful connection to rabbitmq cluster.
-  ```
-   monarch-foundation: Name of the Monarch Foundation
-   monarch-org: Organisation
-   monarch-space: Space
-   app-service-name: Service Name
-   app-exchange-name: Exchange Name
-   queue-name: purge queue name
-  ```
 
-## End Output
-1. Add _Nexus_ repo as a source for Chocolatey
-2. Installs the Chocolatey License as well as a few other Chocolatey packages
-3. Installs the chocolatey extension package. There may be errors that cause this to fail, try to install it with the _--force_ switch
-4. Installs the Chocolatey Agent service that will elevate the Choco command for the user
-5. Installs the Chocolatey GUI
+## Technologies Used
+- Tech 1 - version 1.0
+- Tech 2 - version 2.0
+- Tech 3 - version 3.0
 
+## Setup
+What are the project requirements/dependencies? Where are they listed? A requirements.txt or a Pipfile.lock file perhaps? Where is it located?
+
+Proceed to describe how to install / setup one's local environment / get started with the project.
+
+
+## Usage
+How does one go about using it?
+Provide various use cases and code examples here.
+
+`write-your-code-here`
+
+## Acknowledgements
+Give credit here.
+- This project was inspired by...
+- This project was based on [this tutorial](https://www.example.com).
+- Many thanks to...
+
+
+## Contact
+Created by [Author](https://github.com/PTBXXXXX_PTI)
+
+<!-- You don't have to include all sections - just the one's relevant to your project -->
+
+<!-- This README is modified from ritaly's example: https://github.com/ritaly/README-cheatsheet -->
