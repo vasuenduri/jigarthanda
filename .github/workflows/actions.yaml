@@ -22,7 +22,7 @@ jobs:
     steps:    
       - name: declare lxkdbmc02
         run: |
-            echo "hi: {{ inputs.c02-replicasLX }}"
+            echo "hi: ${{ inputs.c02-replicasLX }}"
         shell: bash
           
           
