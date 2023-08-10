@@ -11,6 +11,9 @@ on:
         - "3"
         - "4"
         - "5"
+      c02-replicasLX:
+        type: string
+        description: 'cluster C01 LX Replicas count'
 env:
   NAMESPACES: 'dev,qa,stg'
 jobs:
@@ -19,23 +22,7 @@ jobs:
     steps:    
       - name: declare lxkdbmc02
         run: |
-          declare -A svc_ip_lxbdmc02
-          START=4
-          prevCount=2
-          for i in $(eval echo "{$START..$prevCount}")
-          do
-            SVC_IP=10.96.3.$i
-            svc_ip_lxbdmc02+=( [$i]=$SVC_IP)
-          done
-          if [ ${#svc_ip_lxbdmc02[@]} -ne 0 ]; then
-            for key in ${!svc_ip_lxbdmc02[@]}; do
-              HOSTNAME=lxkdbmc02-${key}.lxkdbmc02-svc.cluster.local
-              echo $HOSTNAME
-              echo ${HOSTNAME} ${svc_ip_lxbdmc02[${key}]}
-            done
-          else
             echo "All are empty"
-          fi
         shell: bash
           
           
