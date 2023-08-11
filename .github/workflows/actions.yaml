@@ -30,7 +30,7 @@ jobs:
             c02replicasLX="rahul"
             c03replicasLX="reddy"
             echo "c02replicasLX=${c02replicasLX}" >> $GITHUB_ENV
-            echo "c03replicasLX=${c02replicasLX}" >> $GITHUB_ENV
+            echo "c03replicasLX=${c03replicasLX}" >> $GITHUB_ENV
 
       - name: show the var output
         run: |
