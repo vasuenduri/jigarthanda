@@ -13,22 +13,28 @@ on:
         - "5"
       c02replicasLX:
         type: string
-        description: 'cluster C01 LX Replicas count'
+        description: 'cluster C02 LX Replicas count'
+      c03replicasLX:
+        type: string
+        description: 'cluster C03 LX Replicas count'
 env:
-  NAMESPACES: 'dev,qa,stg'
+  c02replicasLX: ${{ inputs.c02replicasLX }}
+  c03replicasLX: ${{ inputs.c03replicasLX }}
 jobs:
   dns_records:
     runs-on: ubuntu-latest
     steps:    
       - name: check the var status
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.c02replicasLX == ''
+        if: github.event.inputs.c02replicasLX == '' && github.event.inputs.c03replicasLX == ''
         run: |
             c02replicasLX="rahul"
+            c03replicasLX="reddy"
             echo "c02replicasLX=${c02replicasLX}" >> $GITHUB_ENV
+            echo "c03replicasLX=${c02replicasLX}" >> $GITHUB_ENV
 
       - name: show the var output
         run: |
-            echo "hi ${{ env.c02replicasLX }}"
+            echo "hi ${{ env.c02replicasLX }} ${{ env.c03replicasLX }}"
           
           
  
