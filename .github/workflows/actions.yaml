@@ -20,10 +20,13 @@ jobs:
   dns_records:
     runs-on: ubuntu-latest
     steps:    
-      - name: declare lxkdbmc02
+      - name: check the var status
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.c02-replicasLX == ''
         run: |
             echo "c02-replicasLX is empty"
+      - name: show the var output
+        run: |
+            echo "c02-replicasLX is not empty"
           
           
  
