@@ -22,7 +22,7 @@ jobs:
     steps:    
       - name: declare lxkdbmc02
         run: |
-            if [[ -z "${{ inputs.c02-replicasLX }}" ]]; then
+            if [[ -z ${{ inputs.c02-replicasLX }} ]]; then
                 c02-replicasLX="rahul"
             fi
             echo "hi: $c02-replicasLX"
