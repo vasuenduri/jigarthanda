@@ -23,9 +23,6 @@ jobs:
       - name: declare lxkdbmc02
         run: |
             c02-replicasLX="${{ inputs.c02-replicasLX }}"
-            if [[ -z "$c02-replicasLX" ]]; then
-                c02-replicasLX="rahul"
-            fi
             echo "hi: $c02-replicasLX"
         shell: bash
           
