@@ -23,10 +23,12 @@ jobs:
       - name: check the var status
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.c02-replicasLX == ''
         run: |
-            echo "c02-replicasLX is empty"
+            c02-replicasLX="rahul"
+            echo "c02-replicasLX=${c02-replicasLX}" >> $GITHUB_ENV
+
       - name: show the var output
         run: |
-            echo "c02-replicasLX is not empty"
+            echo "hi ${{ env.c02-replicasLX }}"
           
           
  
