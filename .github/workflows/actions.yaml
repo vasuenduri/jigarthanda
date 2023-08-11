@@ -21,13 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:    
       - name: declare lxkdbmc02
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.c02-replicasLX == ''
         run: |
-            if ${{ inputs.c02-replicasLX == "" }}
-            then
-             c02-replicasLX="rahul"
-            fi
-            echo "c02-replicasLX"
-        shell: bash
+            echo "c02-replicasLX is empty"
           
           
  
