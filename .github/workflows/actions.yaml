@@ -11,7 +11,7 @@ on:
         - "3"
         - "4"
         - "5"
-      c02-replicasLX:
+      c02replicasLX:
         type: string
         description: 'cluster C01 LX Replicas count'
 env:
@@ -21,14 +21,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:    
       - name: check the var status
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.c02-replicasLX == ''
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.c02replicasLX == ''
         run: |
-            c02-replicasLX="rahul"
-            echo "c02-replicasLX=${c02-replicasLX}" >> $GITHUB_ENV
+            c02replicasLX="rahul"
+            echo "c02replicasLX=${c02replicasLX}" >> $GITHUB_ENV
 
       - name: show the var output
         run: |
-            echo "hi ${{ env.c02-replicasLX }}"
+            echo "hi ${{ env.c02replicasLX }}"
           
           
  
