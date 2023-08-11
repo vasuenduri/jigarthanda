@@ -22,7 +22,7 @@ jobs:
     steps:    
       - name: declare lxkdbmc02
         run: |
-            ((${{ inputs.c02-replicasLX }})) ||  c02-replicasLX="I must have been unset, empty, or null!"
+            ((\$${{inputs.c02-replicasLX}})) ||  c02-replicasLX="I must have been unset, empty, or null!"
             echo "hi: $c02-replicasLX"
         shell: bash
           
