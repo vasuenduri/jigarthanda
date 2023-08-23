@@ -1,0 +1,14 @@
+name: Manual | GitHub Actions Demo
+
+on:
+  workflow_dispatch:
+    inputs:
+      username:
+        description: 'A username passed from the caller workflow'
+        default: 'john-doe'
+        required: false
+        type: string
+
+jobs:
+  gitHub-actions-demo:
+    uses: vasuenduri/infra-helm-repo/blob/main/.github/workflows/manual-trigger-job.yml@main
