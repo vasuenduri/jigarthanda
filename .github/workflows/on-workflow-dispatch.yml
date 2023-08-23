@@ -11,4 +11,4 @@ on:
 
 jobs:
   gitHub-actions-demo:
-    uses: vasuenduri/infra-helm-repo/blob/main/.github/workflows/manual-trigger-job.yml@main
+    uses: vasuenduri/infra-helm-repo/.github/workflows/manual-trigger-job.yml@main
