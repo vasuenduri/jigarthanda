@@ -33,3 +33,8 @@ jobs:
           repository: vasuenduri/infra-helm-repo
           token: ${{ secrets.GH_PAT }}
           path: infra-helm-repo
+
+      - name: Create another config
+        run: |
+          echo "hello"
+          ls -al
