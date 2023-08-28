@@ -35,4 +35,14 @@ jobs:
       - name: Create Configmap
         run: |
           echo "hello"
+          ls -al
+          rm -rf .git .github
+          ls -al
+
+      - name: Checkout tools repo
+        uses: actions/checkout@v3
+        with:
+          repository: vasuenduri/infra-helm-repo
+          path: infra-helm-repo
+          
 
