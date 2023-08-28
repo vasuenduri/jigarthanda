@@ -19,30 +19,19 @@ jobs:
   additional-pods:
     runs-on: ubuntu-latest
     steps:
-      - name: Clear submodule if it exists and remove binaries if exists.
-        run: |
-          # Print out info about the current directory
-          pwd
-          ls -l
-          # Remove the problematic submodule if it exists
-          rm -rf ./skynet-mongodb/skynet-mongodb
-          
       - name: Code Checkout
         uses: actions/checkout@v3
-        with:
-          path: skynet
 
       - name: Create Configmap
         run: |
           echo "hello"
-          ls -al
-          rm -rf .git .github
           ls -al
 
       - name: Checkout tools repo
         uses: actions/checkout@v3
         with:
           repository: vasuenduri/infra-helm-repo
+          token: "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"
           path: infra-helm-repo
           
 
