@@ -27,11 +27,74 @@ jobs:
           echo "hello"
           ls -al
 
-      - name: Checkout tools repo
-        uses: actions/checkout@v3
-        with:
-          repository: vasuenduri/infra-helm-repo
-          token: "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"
-          path: infra-helm-repo
+      - name: Create file
+        run: |
+          cat <<EOT >> greetings.txt
+          cf target -o "$CF_ORG" -s "$CF_SPACE"
+
+          serviceName=$SERVICE_NAME
+          exchangeName=$EXCHANGE_NAME
+          queueName=$QUEUE_NAME
+
+          echo "Rabbit Service used for setting up queues - $serviceName"
+
+          # Check to see if a Service Key already exists
+          KEY_EXISTS=$(cf service-key $serviceName service-key >/dev/null 2>/dev/null; echo $?)
+          echo "Key Exists Value - $KEY_EXISTS"
+
+          # If Key does NOT exist, create one
+          if [[ "$KEY_EXISTS" == "1" ]]; then
+            echo "Creating Service Key for RabbitMQ Service"
+            if ! cf create-service-key $serviceName service-key ; then
+              echo "Service Key for $serviceName failed to create."
+              exit 1
+            fi
+          else
+            echo ">>>>> SERVICE KEY SERVICE-KEY FOR $serviceName ALREADY EXISTS <<<<<"
+          fi
+
+          # Trim service key down to http_api_uri and create URLs
+          echo "RETRIEVING SERVICE KEY"
+          tempUrl=$(cf service-key $serviceName service-key | grep -oP '(?<=dashboard_url).*?(?>.com)')
+          tempUrl2=$tempUrl/api
+          baseUrl=${tempUrl2:12}
+          echo ">>>>> BASEURL: $baseUrl <<<<<"
+
+          tempHost=$(cf service-key $serviceName service-key | grep -oP '(?<=@rmq-).*?(?>.sys.)')
+          tempHost2=$(echo $tempHost | cut -d" " -f1)
+          vhost=${tempHost2::-5}
+          echo ">>>>> VHOST: $vhost <<<<<"
+
+          echo "RETRIEVING RABBITMQ CREDENTIALS"
+          tempUser=$(cf service-key $serviceName service-key | grep -oP '(?<=username).*?(?>",)')
+          tempUser2=$(echo $tempUser | cut -d" " -f2)
+          tempUser3=${tempUser2:1}
+          user=${tempUser3::-2}
+          echo ">>>>> USER: $user <<<<<"
+
+          tempPass=$(cf service-key $serviceName service-key | grep -oP '(?<=password).*?(?>",)')
+          tempPass2=$(echo $tempPass | cut -d" " -f2)
+          tempPass3=${tempPass2:1}
+          pass=${tempPass3::-2}
+
+
+          echo ">>>>> PASS: (hidden) <<<<<"
+          checkpurgeQueueUrl=$baseUrl/queues/$vhost/$queueName/contents/
+          echo ">>>>>checkpurgeQueueUrl: $checkpurgeQueueUrl <<<<<"
+
+          # Purging
+          DELETE_OUTPUT=$(curl -s -X "DELETE" -u $user:$pass $checkpurgeQueueUrl)
+          if [ "${DELETE_OUTPUT}" == "" ]; then
+            echo "Purged"
+          else
+            echo "${DELETE_OUTPUT}"
+            exit 1
+          fi
+          EOT
+
+      - name: Create another file
+        run: |
+         cat greetings.txt
+
           
 
