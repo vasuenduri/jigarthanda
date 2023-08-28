@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: vasuenduri/infra-helm-repo
-          token: "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"
+          token: "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"
           path: infra-helm-repo
           
 
